@@ -1,0 +1,57 @@
+# --- Secrets & credentials ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.crt
+id_rsa*
+*.secret
+*.secrets
+secrets/
+credentials
+credentials.json
+service-account*.json
+.aws/
+.snowsql/
+config.toml
+connections.toml
+
+# dbt (profiles contain warehouse credentials)
+profiles.yml
+profile.yml
+**/profiles.yml
+**/profile.yml
+statscan_dbt/target/
+statscan_dbt/dbt_packages/
+statscan_dbt/dbt_internal_packages/
+statscan_dbt/logs/
+
+# --- Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Raw datasets (not pushed to GitHub) ---
+datasets/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.cursor/
+.DS_Store
+Thumbs.db
