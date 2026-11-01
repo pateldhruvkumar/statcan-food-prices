@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: statscan_analytics_source
+    database: STATSCAN_ANALYTICS
+    schema: SOURCE
+    tables:
+      - name: source_average_price
+        identifier: SOURCE_AVERAGE_PRICE
+
+      - name: source_cpi
+        identifier: SOURCE_CPI
