@@ -337,10 +337,3 @@ Snowflake reads from S3 through a **storage integration** (IAM role based), not 
 - Fix the spelling in model and column names (`provience` → `province`, `precentage_change` → `percentage_change`). This needs a matching update in Power BI.
 
 ---
-
-## 👤 Author
-
-Built as a data engineering and analytics portfolio project using Statistics Canada open data.
-
-> Contains information licensed under the [Statistics Canada Open Licence](https://www.statcan.gc.ca/en/reference/licence).
-
