@@ -62,39 +62,3 @@ save_yearly_data(
     avg_by_year,
     cpi_by_year
 )
-
-# print(df_avgerage.head())
-# print(df_provience.head())
-
-# print(df_avgerage.columns)
-
-# # Returned first 10 rows of the REF_DATE column
-# print(df_average['REF_DATE'].head(10))
-
-# # Returned the dtype of the REF_DATE column
-# print(df_average['REF_DATE'].dtype)
-    
-# # This tells you what the first value in the REF_DATE column is
-# print(repr(df_average['REF_DATE'].iloc[0]))
-
-# ---------------------------------- Split the data into 2017 to 2026 separate dataframes ----------------------------------
-
-# avg_for_2017 = df_avgerage[
-#     df_avgerage['REF_DATE'].str.startswith('2017')
-# ]
-
-# cpi_for_2017 = df_provience[
-#    df_provience['REF_DATE'].str.startswith('2017')
-# ] 
-
-# print("avg_for_2017: ", avg_for_2017.count())
-# print("cpi_for_2017: ", cpi_for_2017.count())
-
-# df_avgerage['REF_DATE'] = pd.to_datetime(
-#     df_avgerage['REF_DATE'],
-#     format='%Y-%m'
-# )
-
-# avg_for_2017 = df_avgerage[
-#     df_avgerage['REF_DATE'].dt.year == 2017
-# ]

@@ -5,7 +5,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 
 BUCKET_NAME = "stats-canada-grocery-data"
-YEAR = 2018
+YEAR = 2026
 
 FILES = {
     "average-price": Path(
