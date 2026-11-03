@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatCan Food Prices Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root {
+  --paper: #f3f6f5;
+  --panel: #ffffff;
+  --ink: #15212a;
+  --ink-2: #4b5965;
+  --rule: #d2dad8;
+  --rule-strong: #9badb2;
+  --accent: #0d5a70;
+  --accent-soft: #e0edf0;
+  --tag: #f4c542;
+  --tag-ink: #1d1a12;
+  --code-bg: #e8edeb;
+  --font-display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1518;
+    --panel: #142027;
+    --ink: #e1e8ea;
+    --ink-2: #9aa9b1;
+    --rule: #26343b;
+    --rule-strong: #4c5f68;
+    --accent: #6bbfd6;
+    --accent-soft: #14303a;
+    --tag: #efc246;
+    --tag-ink: #1d1a12;
+    --code-bg: #111b20;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1518;
+  --panel: #142027;
+  --ink: #e1e8ea;
+  --ink-2: #9aa9b1;
+  --rule: #26343b;
+  --rule-strong: #4c5f68;
+  --accent: #6bbfd6;
+  --accent-soft: #14303a;
+  --tag: #efc246;
+  --tag-ink: #1d1a12;
+  --code-bg: #111b20;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-text-size-adjust: 100%;
+}
+h1, h2, h3, p, ul, ol, dl, dd, figure, pre, table { margin: 0; }
+
+.frame { max-width: 920px; margin-inline: auto; padding-block: 56px 72px; display: grid; gap: 72px; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 0.08em 0.32em; border-radius: 3px; overflow-wrap: anywhere; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+td code { overflow-wrap: normal; }
+
+ul, ol { padding-left: 1.3em; display: grid; gap: 8px; }
+li { padding-left: 2px; }
+li::marker { color: var(--ink-2); }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Header */
+.top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 290px); gap: 48px; align-items: end; }
+.top-text { display: grid; gap: 20px; min-width: 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+h1 { font-family: var(--font-display); font-stretch: 72%; font-weight: 800; font-size: clamp(2.75rem, 1.6rem + 5vw, 4.75rem); line-height: 0.95; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { font-size: 1.1875rem; line-height: 1.55; max-width: 58ch; }
+.chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips li { font-family: var(--font-mono); font-size: 0.76rem; padding: 3px 8px; border: 1px solid var(--rule-strong); border-radius: 3px; color: var(--ink-2); }
+.repo { font-weight: 500; }
+
+/* Shelf tag */
+.tag-fig { display: grid; gap: 10px; }
+.tag { background: var(--tag); color: var(--tag-ink); border-radius: 6px; display: grid; overflow: hidden; }
+.tag-top { display: grid; padding: 14px 16px 0; }
+.tag-item { font-family: var(--font-display); font-stretch: 80%; font-weight: 700; font-size: 1.35rem; line-height: 1.1; }
+.tag-unit { font-size: 0.85rem; }
+.tag-price { display: flex; align-items: flex-start; padding: 4px 16px 6px; font-family: var(--font-display); font-stretch: 75%; font-weight: 800; font-size: 4.5rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.tag-price .cur { font-size: 0.42em; margin-top: 0.14em; margin-right: 3px; }
+.tag-price .cents { font-size: 0.42em; margin-top: 0.14em; margin-left: 3px; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.tag-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px 12px; font-size: 0.8rem; line-height: 1.35; }
+.tag-meta dt { font-weight: 600; }
+.tag-meta dd { font-variant-numeric: tabular-nums; }
+.tag-band { background: var(--tag-ink); color: var(--tag); font-family: var(--font-mono); font-size: 0.85rem; font-weight: 500; padding: 8px 16px; }
+.tag-fig figcaption { font-size: 0.8rem; }
+
+/* Sections */
+section { display: grid; gap: 20px; min-width: 0; scroll-margin-top: 16px; }
+section > p, section > ul, section > ol { max-width: 66ch; }
+section > h3 { margin-top: 16px; }
+h2 { font-family: var(--font-display); font-stretch: 82%; font-weight: 750; font-size: clamp(1.75rem, 1.2rem + 2vw, 2.4rem); line-height: 1.05; text-wrap: balance; }
+h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.3; text-wrap: balance; }
+.plain-head, .step-head { padding-top: 22px; border-top: 2px solid var(--ink); }
+.step-head { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 18px; align-items: start; }
+.step-no { font-family: var(--font-display); font-stretch: 75%; font-weight: 800; font-size: 3.5rem; line-height: 0.85; color: var(--accent); }
+.step-title { display: grid; gap: 8px; min-width: 0; }
+.step-meta { font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.5; color: var(--ink-2); }
+.step-meta a { color: inherit; }
+
+/* Pipeline strip */
+.flow { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.flow li { position: relative; padding: 0; min-width: 0; }
+.flow li:not(:last-child)::after { content: ""; position: absolute; top: 50%; right: -14px; width: 14px; border-top: 1.5px solid var(--ink); }
+.flow a { display: grid; gap: 3px; align-content: start; height: 100%; padding: 14px 14px 16px; background: var(--panel); border: 1px solid var(--rule-strong); border-radius: 6px; color: var(--ink); text-decoration: none; }
+.flow a:hover { border-color: var(--accent); }
+.flow .no { font-family: var(--font-display); font-stretch: 75%; font-weight: 800; font-size: 1.5rem; line-height: 1; color: var(--accent); }
+.flow .name { font-weight: 600; }
+.flow .tool { font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.45; color: var(--ink-2); }
+.flow .out { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 0.875rem; line-height: 1.4; }
+
+/* Tables */
+.tbl { display: grid; gap: 6px; overflow-x: auto; min-width: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+th:first-child, td:first-child { padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
+thead th { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+.num { text-align: right; white-space: nowrap; }
+tfoot td { font-weight: 600; border-top: 1.5px solid var(--ink); border-bottom: 0; }
+table.compact { font-size: 0.875rem; }
+table.compact th, table.compact td { padding-block: 5px; }
+
+/* Code */
+.code { display: grid; gap: 6px; min-width: 0; }
+.label { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.02em; color: var(--ink-2); }
+pre { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; tab-size: 4; }
+.c { color: var(--ink-2); }
+.pair { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+
+/* Figures */
+figure { display: grid; gap: 10px; min-width: 0; }
+figcaption { font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); max-width: 66ch; }
+.dg-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; }
+.dg-wrap svg { display: block; width: 100%; height: auto; margin-inline: auto; }
+.dg-access { max-width: 810px; min-width: 600px; }
+.dg-lineage { min-width: 720px; }
+.wf { min-width: 720px; }
+
+/* Diagram marks */
+.dg text { font-family: var(--font-body); fill: var(--ink); }
+.dg .tg { font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; fill: var(--ink-2); }
+.dg .tt { font-size: 14px; font-weight: 600; }
+.dg .ts { font-size: 12px; fill: var(--ink-2); }
+.dg .mono { font-family: var(--font-mono); font-weight: 500; }
+.dg .nd { font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
+.dg .lb { font-family: var(--font-mono); font-size: 12px; }
+.dg .lb-a { fill: var(--accent); }
+.dg .muted { fill: var(--ink-2); font-style: italic; }
+.dg .on-gold { fill: var(--tag-ink); }
+.dg .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.25; }
+.dg .box-id { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.25; }
+.dg .box-gold { fill: var(--tag); stroke: var(--tag-ink); stroke-width: 1.25; }
+.dg .ln { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+.dg .ln-id { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+.dg .ah { fill: var(--ink); }
+.dg .ah-a { fill: var(--accent); }
+.dg .dot { fill: var(--accent); }
+
+/* Report wireframe */
+.wf text { font-family: var(--font-body); fill: var(--ink); }
+.wf .pg { fill: var(--panel); stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 10 8; }
+.wf .vs { fill: var(--code-bg); stroke: var(--rule-strong); stroke-width: 2; }
+.wf .wt { font-size: 18px; font-weight: 600; letter-spacing: 0.1em; fill: var(--ink-2); }
+.wf .wh { font-size: 24px; font-weight: 600; }
+.wf .wh-s { font-size: 22px; font-weight: 600; }
+.wf .wm { font-family: var(--font-mono); font-size: 18px; fill: var(--ink-2); }
+
+.foot { display: grid; gap: 4px; padding-top: 22px; border-top: 1px solid var(--rule); font-size: 0.875rem; color: var(--ink-2); }
+
+@media (max-width: 760px) {
+  .frame { padding-block: 32px 56px; gap: 56px; }
+  .top { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .tag-fig { max-width: 320px; }
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .flow { grid-template-columns: minmax(0, 1fr); }
+  .flow li:not(:last-child)::after { top: auto; bottom: -14px; right: auto; left: 26px; width: 0; height: 14px; border-top: 0; border-left: 1.5px solid var(--ink); }
+  .step-no { font-size: 2.75rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+<header class="top">
+  <div class="top-text">
+    <p class="eyebrow">Data engineering project</p>
+    <h1>StatCan Food Prices Pipeline</h1>
+    <p class="lede">A batch pipeline that turns two Statistics Canada tables into a Power BI report on grocery prices. Python splits the raw CSV downloads into yearly files, the files land in Amazon S3, Snowflake loads them through a storage integration, and dbt models them into bronze, silver and gold tables.</p>
+    <ul class="chips" aria-label="Tools used">
+      <li>Python</li>
+      <li>pandas</li>
+      <li>boto3</li>
+      <li>Amazon S3</li>
+      <li>AWS IAM</li>
+      <li>Snowflake</li>
+      <li>dbt Core</li>
+      <li>Power BI</li>
+    </ul>
+    <p><a class="repo" href="https://github.com/pateldhruvkumar/statcan-food-prices">Source code on GitHub</a></p>
+  </div>
+
+  <figure class="tag-fig">
+    <div class="tag">
+      <p class="tag-top"><span class="tag-item">Beef striploin cuts</span><span class="tag-unit">per kilogram</span></p>
+      <p class="tag-price"><span class="sr">$35.90</span><span class="cur" aria-hidden="true">$</span><span aria-hidden="true">35</span><span class="cents" aria-hidden="true">90</span></p>
+      <dl class="tag-meta">
+        <div><dt>Canada</dt><dd>August 2026</dd></div>
+        <div><dt>August 2025</dt><dd>$30.80</dd></div>
+      </dl>
+      <p class="tag-band">+16.56% in one year</p>
+    </div>
+    <figcaption>Rank 1 in the gold table <code>biggest_price_change_for_ten_products</code>.</figcaption>
+  </figure>
+</header>
+
+<section id="overview" aria-labelledby="h-overview">
+  <div class="plain-head"><h2 id="h-overview">Overview</h2></div>
+  <p>Statistics Canada publishes the monthly average retail price of 110 grocery and household products, along with the monthly Consumer Price Index. Each table comes as one large CSV with every month and region stacked together, and neither one shows how prices change from one month or year to the next.</p>
+  <p>I built this pipeline to answer three questions in Power BI:</p>
+  <ul>
+    <li>How much did a product's price change since last month in a given province?</li>
+    <li>How does the change from the same month last year compare across provinces?</li>
+    <li>Which 10 products went up the most in Canada over the past year?</li>
+  </ul>
+
+  <div class="tbl">
+    <p class="label">Source data</p>
+    <table>
+      <thead>
+        <tr><th>Table</th><th>What it holds</th><th>Period</th><th class="num">Rows</th><th class="num">Size</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1810024501">18-10-0245-01</a></td>
+          <td>Monthly average retail prices for 110 products in Canada, the 10 provinces, Whitehorse and Yellowknife</td>
+          <td>Jan 2017 to Aug 2026</td>
+          <td class="num">141,432</td>
+          <td class="num">19.0 MB</td>
+        </tr>
+        <tr>
+          <td><a href="https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1810000401">18-10-0004-01</a></td>
+          <td>Monthly Consumer Price Index for 359 products and product groups in 30 regions</td>
+          <td>Jan 1914 to Sep 2026</td>
+          <td class="num">1,154,918</td>
+          <td class="num">161.3 MB</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure>
+    <ol class="flow">
+      <li><a href="#split"><span class="no">1</span><span class="name">Split</span><span class="tool">Python, pandas</span><span class="out">20 yearly CSV files</span></a></li>
+      <li><a href="#land"><span class="no">2</span><span class="name">Land</span><span class="tool">Amazon S3, IAM user</span><span class="out">landing/ prefix, by year</span></a></li>
+      <li><a href="#load"><span class="no">3</span><span class="name">Load</span><span class="tool">Snowflake, IAM role</span><span class="out">SOURCE tables</span></a></li>
+      <li><a href="#model"><span class="no">4</span><span class="name">Model</span><span class="tool">dbt Core</span><span class="out">Bronze, silver and gold tables</span></a></li>
+      <li><a href="#report"><span class="no">5</span><span class="name">Report</span><span class="tool">Power BI</span><span class="out">One report page</span></a></li>
+    </ol>
+    <figcaption>The five steps below, in the order the data moves through them.</figcaption>
+  </figure>
+</section>
+
+<section id="split" aria-labelledby="h-split">
+  <header class="step-head">
+    <span class="step-no" aria-hidden="true">1</span>
+    <div class="step-title">
+      <h2 id="h-split">Split the raw files by year</h2>
+      <p class="step-meta">Python, pandas · <a href="https://github.com/pateldhruvkumar/statcan-food-prices/blob/main/start/split_data.py">start/split_data.py</a></p>
+    </div>
+  </header>
+  <p>The two downloads are 19 MB and 161 MB. I split each one into one file per year, so a single year can be uploaded and loaded on its own and the S3 layout can be partitioned by year.</p>
+  <p><code>split_data.py</code> reads both CSVs with pandas. For each year from 2017 to 2026 it keeps the rows whose <code>REF_DATE</code> starts with that year and writes them under <code>data/loading/</code>. The CPI table goes back to January 1914, so the same loop also trims it to the ten years the price table covers.</p>
+  <div class="pair">
+    <div class="code">
+      <p class="label">start/split_data.py</p>
+<pre><code>for year in range(start_year, end_year + 1):
+    avg_by_year[year] = df_average[
+        df_average['REF_DATE'].str.startswith(str(year))
+    ].copy()
+    cpi_by_year[year] = df_provience[
+        df_provience['REF_DATE'].str.startswith(str(year))
+    ].copy()
+
+    avg_count = avg_count + len(avg_by_year[year])
+    cpi_count = cpi_count + len(cpi_by_year[year])</code></pre>
+    </div>
+    <div class="tbl">
+      <p class="label">Rows per yearly file</p>
+      <table class="compact">
+        <thead><tr><th>Year</th><th class="num">Prices</th><th class="num">CPI</th></tr></thead>
+        <tbody>
+          <tr><td>2017</td><td class="num">14,508</td><td class="num">25,044</td></tr>
+          <tr><td>2018</td><td class="num">14,508</td><td class="num">25,059</td></tr>
+          <tr><td>2019</td><td class="num">14,508</td><td class="num">24,264</td></tr>
+          <tr><td>2020</td><td class="num">14,508</td><td class="num">24,264</td></tr>
+          <tr><td>2021</td><td class="num">14,508</td><td class="num">23,921</td></tr>
+          <tr><td>2022</td><td class="num">14,508</td><td class="num">23,678</td></tr>
+          <tr><td>2023</td><td class="num">14,508</td><td class="num">23,830</td></tr>
+          <tr><td>2024</td><td class="num">14,508</td><td class="num">24,015</td></tr>
+          <tr><td>2025</td><td class="num">14,904</td><td class="num">24,060</td></tr>
+          <tr><td>2026</td><td class="num">10,464</td><td class="num">18,045</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total</td><td class="num">141,432</td><td class="num">236,180</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+  <p>The loop also keeps a running row count. The script prints each year's count and compares the total with the original file. The ten price files add up to 141,432 rows, the same as the raw download. The ten CPI files hold 236,180 of the 1,154,918 raw rows, which is every row from 2017 onward. The 2026 files run to August for prices and to September for CPI.</p>
+</section>
+
+<section id="land" aria-labelledby="h-land">
+  <header class="step-head">
+    <span class="step-no" aria-hidden="true">2</span>
+    <div class="step-title">
+      <h2 id="h-land">Land the files in Amazon S3</h2>
+      <p class="step-meta">boto3, IAM user · <a href="https://github.com/pateldhruvkumar/statcan-food-prices/blob/main/src/ingestion/upload_to_s3.py">src/ingestion/upload_to_s3.py</a></p>
+    </div>
+  </header>
+  <p>The yearly files go into an S3 bucket named <code>stats-canada-grocery-data</code>, under a <code>landing/</code> prefix. Each dataset has its own folder, and each year sits in its own Hive-style <code>year=</code> partition.</p>
+  <div class="code">
+    <p class="label">Bucket layout</p>
+<pre><code>s3://stats-canada-grocery-data/
+└── landing/
+    ├── average-price/
+    │   ├── year=2017/average-price_2017.csv
+    │   ├── ...
+    │   └── year=2026/average-price_2026.csv
+    └── cpi/
+        ├── year=2017/provience-price_2017.csv
+        ├── ...
+        └── year=2026/provience-price_2026.csv</code></pre>
+  </div>
+  <p><code>upload_to_s3.py</code> builds the object key from the dataset name and the year, checks that the local file exists, and uploads it with boto3. It catches <code>ClientError</code> and <code>BotoCoreError</code>, prints what failed and raises again, so a failed upload stops the run. The <code>YEAR</code> constant at the top sets which year to send.</p>
+  <div class="code">
+    <p class="label">src/ingestion/upload_to_s3.py</p>
+<pre><code>s3_key = f"landing/{dataset_name}/year={year}/{local_file.name}"
+
+try:
+    s3_client.upload_file(
+        Filename=str(local_file),
+        Bucket=BUCKET_NAME,
+        Key=s3_key
+    )
+
+    print(f"Uploaded: {local_file.name}")
+    print(f"S3 location: s3://{BUCKET_NAME}/{s3_key}")
+
+except (ClientError, BotoCoreError) as error:
+    print(f"Upload failed for {local_file.name}")
+    print(error)
+    raise</code></pre>
+  </div>
+
+  <h3>IAM user for the upload</h3>
+  <p>The script runs as a dedicated IAM user instead of the AWS root account.</p>
+  <ul>
+    <li>The user has an access key for programmatic access.</li>
+    <li>The key is stored in the local AWS credentials file with <code>aws configure</code>. boto3 picks it up through its default credential chain, so there are no keys in the code or in the repository.</li>
+    <li>Its policy only allows uploads into the <code>landing/</code> prefix.</li>
+  </ul>
+  <div class="code">
+    <p class="label">IAM policy on the upload user</p>
+<pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::stats-canada-grocery-data/landing/*"
+    }
+  ]
+}</code></pre>
+  </div>
+</section>
+
+<section id="load" aria-labelledby="h-load">
+  <header class="step-head">
+    <span class="step-no" aria-hidden="true">3</span>
+    <div class="step-title">
+      <h2 id="h-load">Connect Snowflake to S3 and load</h2>
+      <p class="step-meta">IAM role, storage integration, COPY INTO · <a href="https://github.com/pateldhruvkumar/statcan-food-prices/blob/main/snowflake/load_average_price.sql">snowflake/load_average_price.sql</a> · <a href="https://github.com/pateldhruvkumar/statcan-food-prices/blob/main/snowflake/load_cpi.sql">snowflake/load_cpi.sql</a></p>
+    </div>
+  </header>
+  <p>Snowflake reads the bucket through a storage integration called <code>STATSCAN_S3_INT</code>. The integration holds the ARN of an IAM role. When a stage needs to list or read files, Snowflake's own AWS identity assumes that role and works with its temporary credentials. No AWS keys are stored in Snowflake or written into the SQL.</p>
+
+  <figure>
+    <div class="dg-wrap">
+      <svg class="dg dg-access" viewBox="0 0 810 616" role="img" aria-label="The upload script writes files to the S3 bucket as the IAM user. Snowflake reads the bucket through STATSCAN_S3_STAGE, which uses the storage integration STATSCAN_S3_INT to assume the IAM role. COPY INTO then loads the files into the SOURCE tables.">
+        <defs>
+          <marker id="m-acc-ink" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+          <marker id="m-acc-id" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path class="ah-a" d="M0 0L10 5L0 10z"/></marker>
+        </defs>
+
+        <text class="tg" x="40" y="30">LOCAL MACHINE</text>
+        <rect class="box" x="40" y="40" width="280" height="60" rx="6"/>
+        <text class="tt mono" x="56" y="66">upload_to_s3.py</text>
+        <text class="ts" x="56" y="86">boto3, one year per run</text>
+
+        <line class="ln" x1="180" y1="100" x2="180" y2="178" marker-end="url(#m-acc-ink)"/>
+        <text class="lb" x="168" y="144" text-anchor="end">PutObject</text>
+
+        <text class="tg" x="40" y="172">AMAZON S3</text>
+        <rect class="box" x="40" y="180" width="280" height="72" rx="6"/>
+        <text class="tt mono" x="56" y="206">stats-canada-grocery-data</text>
+        <text class="ts mono" x="56" y="226">landing/average-price/year=YYYY/</text>
+        <text class="ts mono" x="56" y="243">landing/cpi/year=YYYY/</text>
+
+        <line class="ln" x1="180" y1="252" x2="180" y2="410" marker-end="url(#m-acc-ink)"/>
+        <text class="lb" x="168" y="335" text-anchor="end">GetObject</text>
+
+        <text class="tg" x="40" y="404">SNOWFLAKE</text>
+        <rect class="box" x="40" y="412" width="280" height="60" rx="6"/>
+        <text class="tt mono" x="56" y="438">STATSCAN_S3_STAGE</text>
+        <text class="ts" x="56" y="458">external stage, CSV file format</text>
+
+        <line class="ln" x1="180" y1="472" x2="180" y2="530" marker-end="url(#m-acc-ink)"/>
+        <text class="lb" x="168" y="505" text-anchor="end">COPY INTO</text>
+
+        <text class="tg" x="40" y="524">SOURCE SCHEMA</text>
+        <rect class="box" x="40" y="532" width="280" height="68" rx="6"/>
+        <text class="tt mono" x="56" y="560">SOURCE_AVERAGE_PRICE</text>
+        <text class="tt mono" x="56" y="583">SOURCE_CPI</text>
+
+        <text class="tg" x="470" y="102">AWS IAM</text>
+        <rect class="box-id" x="470" y="110" width="270" height="60" rx="6"/>
+        <text class="tt" x="486" y="136">IAM user</text>
+        <text class="ts" x="486" y="156">access key, s3:PutObject</text>
+        <line class="ln-id" x1="470" y1="140" x2="184" y2="140"/>
+        <circle class="dot" cx="180" cy="140" r="3.5"/>
+        <text class="lb lb-a" x="327" y="132" text-anchor="middle">runs as</text>
+
+        <text class="tg" x="470" y="293">AWS IAM</text>
+        <rect class="box-id" x="470" y="301" width="270" height="60" rx="6"/>
+        <text class="tt" x="486" y="327">IAM role</text>
+        <text class="ts" x="486" y="347">s3:GetObject, s3:ListBucket</text>
+        <line class="ln-id" x1="470" y1="331" x2="184" y2="331"/>
+        <circle class="dot" cx="180" cy="331" r="3.5"/>
+        <text class="lb lb-a" x="327" y="323" text-anchor="middle">runs as</text>
+
+        <text class="tg" x="470" y="404">SNOWFLAKE</text>
+        <rect class="box-id" x="470" y="412" width="270" height="60" rx="6"/>
+        <text class="tt mono" x="486" y="438">STATSCAN_S3_INT</text>
+        <text class="ts" x="486" y="458">storage integration</text>
+        <line class="ln-id" x1="320" y1="442" x2="470" y2="442"/>
+        <text class="lb lb-a" x="395" y="434" text-anchor="middle">uses</text>
+
+        <line class="ln-id" x1="605" y1="412" x2="605" y2="363" marker-end="url(#m-acc-id)"/>
+        <text class="lb lb-a" x="617" y="392">AssumeRole + external ID</text>
+      </svg>
+    </div>
+    <figcaption>Solid arrows show files moving. Dashed lines show which identity each step runs as: the IAM user for the upload, and the IAM role, assumed through the integration, for every read from Snowflake.</figcaption>
+  </figure>
+
+  <h3>Setting up the IAM role and the integration</h3>
+  <p>The role and the integration each need a value from the other, so the setup went back and forth between AWS and Snowflake:</p>
+  <ol>
+    <li>Created an IAM policy that allows <code>s3:GetObject</code> and <code>s3:GetObjectVersion</code> on <code>landing/*</code>, and <code>s3:ListBucket</code> and <code>s3:GetBucketLocation</code> on the bucket.</li>
+    <li>Created an IAM role for Snowflake and attached that policy.</li>
+    <li>Created the storage integration <code>STATSCAN_S3_INT</code> in Snowflake with the role's ARN, limited to <code>s3://stats-canada-grocery-data/landing/</code>.</li>
+    <li>Ran <code>DESC INTEGRATION STATSCAN_S3_INT</code> and copied <code>STORAGE_AWS_IAM_USER_ARN</code> and <code>STORAGE_AWS_EXTERNAL_ID</code>.</li>
+    <li>Updated the role's trust policy with those two values. Only Snowflake's identity can assume the role, and only when it passes that external ID.</li>
+    <li>Created the stage <code>STATSCAN_S3_STAGE</code> on top of the integration.</li>
+  </ol>
+  <div class="code">
+    <p class="label">Snowflake worksheet</p>
+<pre><code>CREATE STORAGE INTEGRATION STATSCAN_S3_INT
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::&lt;aws_account_id&gt;:role/&lt;snowflake_role&gt;'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://stats-canada-grocery-data/landing/');
+
+DESC INTEGRATION STATSCAN_S3_INT;
+<span class="c">-- STORAGE_AWS_IAM_USER_ARN: Principal in the role's trust policy
+-- STORAGE_AWS_EXTERNAL_ID:  sts:ExternalId condition in the trust policy</span></code></pre>
+  </div>
+  <div class="code">
+    <p class="label">Trust policy on the IAM role</p>
+<pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": { "AWS": "&lt;STORAGE_AWS_IAM_USER_ARN&gt;" },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": { "sts:ExternalId": "&lt;STORAGE_AWS_EXTERNAL_ID&gt;" }
+      }
+    }
+  ]
+}</code></pre>
+  </div>
+  <div class="code">
+    <p class="label">Permissions policy on the IAM role</p>
+<pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:GetObjectVersion"],
+      "Resource": "arn:aws:s3:::stats-canada-grocery-data/landing/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::stats-canada-grocery-data"
+    }
+  ]
+}</code></pre>
+  </div>
+
+  <h3>Loading with COPY INTO</h3>
+  <p>Both load scripts run in <code>STATSCAN_ANALYTICS.SOURCE</code> and follow the same four steps. This is the average price script. The CPI one changes only the table name and the <code>cpi/</code> folder.</p>
+  <div class="code">
+    <p class="label">snowflake/load_average_price.sql</p>
+<pre><code>USE SCHEMA STATSCAN_ANALYTICS.SOURCE;
+
+<span class="c">-- 1. Stage: points to the S3 folder</span>
+CREATE STAGE IF NOT EXISTS STATSCAN_S3_STAGE
+  URL = 's3://stats-canada-grocery-data/landing/'
+  STORAGE_INTEGRATION = STATSCAN_S3_INT;
+
+<span class="c">-- 2. File format: CSV with a header row</span>
+CREATE FILE FORMAT IF NOT EXISTS STATSCAN_CSV
+  TYPE = CSV
+  PARSE_HEADER = TRUE
+  FIELD_OPTIONALLY_ENCLOSED_BY = '"';
+
+<span class="c">-- 3. Table: columns are taken from the CSV header</span>
+CREATE TABLE IF NOT EXISTS SOURCE_AVERAGE_PRICE
+  USING TEMPLATE (
+    SELECT ARRAY_AGG(OBJECT_CONSTRUCT(*))
+    FROM TABLE(INFER_SCHEMA(
+      LOCATION =&gt; '@STATSCAN_S3_STAGE/average-price/',
+      FILE_FORMAT =&gt; 'STATSCAN_CSV')));
+
+<span class="c">-- 4. Load the data</span>
+COPY INTO SOURCE_AVERAGE_PRICE
+  FROM @STATSCAN_S3_STAGE/average-price/
+  FILE_FORMAT = (FORMAT_NAME = 'STATSCAN_CSV')
+  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;</code></pre>
+  </div>
+  <ul>
+    <li><code>INFER_SCHEMA</code> reads the CSV header and <code>CREATE TABLE ... USING TEMPLATE</code> builds the table from it, so there is no hand-written DDL. Header names are kept as they are, which is why a column like <code>"Products and product groups"</code> needs double quotes later in dbt.</li>
+    <li><code>MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE</code> matches CSV columns to table columns by name instead of by position.</li>
+    <li>Snowflake keeps 64 days of load history for each table, so running <code>COPY INTO</code> again after a new upload loads only the new file.</li>
+  </ul>
+  <p>With all ten years uploaded, <code>SOURCE_AVERAGE_PRICE</code> has 141,432 rows and <code>SOURCE_CPI</code> has 236,180.</p>
+</section>
+
+<section id="model" aria-labelledby="h-model">
+  <header class="step-head">
+    <span class="step-no" aria-hidden="true">4</span>
+    <div class="step-title">
+      <h2 id="h-model">Model the data with dbt</h2>
+      <p class="step-meta">dbt Core, dbt-snowflake · <a href="https://github.com/pateldhruvkumar/statcan-food-prices/tree/main/statscan_dbt">statscan_dbt/</a></p>
+    </div>
+  </header>
+  <p>dbt reads the two <code>SOURCE</code> tables declared in <code>sources.yml</code> and builds three layers, each in its own schema. Every model is materialized as a table. The connection profile points at the <code>STATSCAN_ANALYTICS</code> database and the <code>STATSCAN_WH</code> warehouse, and it stays out of Git along with every other credential file.</p>
+
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Layer</th><th>Models</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Bronze</td>
+          <td><code>bronze_average_price</code><br><code>bronze_cpi</code></td>
+          <td><code>SELECT *</code> from the two source tables. Every later model reads from bronze, never from <code>SOURCE</code> directly.</td>
+        </tr>
+        <tr>
+          <td>Silver</td>
+          <td><code>silver_average_price</code><br><code>silver_cpi</code></td>
+          <td><code>TRY_TO_DATE</code> turns <code>REF_DATE</code> values like <code>2017-01</code> into real dates. Columns are renamed and cast, and <code>VALUE</code> becomes <code>NUMBER(6,2)</code> through <code>TRY_CAST</code>, so a bad value turns into NULL instead of failing the run.</td>
+        </tr>
+        <tr>
+          <td>Gold</td>
+          <td>Five models, listed below</td>
+          <td>Window functions over <code>silver_average_price</code> that answer the report's questions.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure>
+    <div class="dg-wrap">
+      <svg class="dg dg-lineage" viewBox="0 0 990 432" role="img" aria-label="dbt lineage. source_average_price flows into bronze_average_price and then silver_average_price, which feeds price_change_over_months, price_change_over_years, most_expensive_provience and rolling_average_price. price_change_over_years feeds biggest_price_change_for_ten_products. source_cpi flows into bronze_cpi and silver_cpi, which no gold model reads yet.">
+        <defs>
+          <marker id="m-lin" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+        </defs>
+
+        <text class="tg" x="16" y="26">SOURCE</text>
+        <text class="ts" x="16" y="44">loaded by COPY INTO</text>
+        <text class="tg" x="220" y="26">BRONZE</text>
+        <text class="ts" x="220" y="44">select *</text>
+        <text class="tg" x="424" y="26">SILVER</text>
+        <text class="ts" x="424" y="44">renamed, cast, dated</text>
+        <text class="tg" x="648" y="26">GOLD</text>
+        <text class="ts" x="648" y="44">window functions</text>
+
+        <rect class="box" x="16" y="156" width="170" height="40" rx="5"/>
+        <text class="nd" x="29" y="181">source_average_price</text>
+        <rect class="box" x="220" y="156" width="170" height="40" rx="5"/>
+        <text class="nd" x="233" y="181">bronze_average_price</text>
+        <rect class="box" x="424" y="156" width="170" height="40" rx="5"/>
+        <text class="nd" x="437" y="181">silver_average_price</text>
+        <line class="ln" x1="186" y1="176" x2="219" y2="176" marker-end="url(#m-lin)"/>
+        <line class="ln" x1="390" y1="176" x2="423" y2="176" marker-end="url(#m-lin)"/>
+
+        <rect class="box" x="16" y="372" width="170" height="40" rx="5"/>
+        <text class="nd" x="29" y="397">source_cpi</text>
+        <rect class="box" x="220" y="372" width="170" height="40" rx="5"/>
+        <text class="nd" x="233" y="397">bronze_cpi</text>
+        <rect class="box" x="424" y="372" width="170" height="40" rx="5"/>
+        <text class="nd" x="437" y="397">silver_cpi</text>
+        <line class="ln" x1="186" y1="392" x2="219" y2="392" marker-end="url(#m-lin)"/>
+        <line class="ln" x1="390" y1="392" x2="423" y2="392" marker-end="url(#m-lin)"/>
+        <text class="ts muted" x="612" y="397">not read by any gold model yet</text>
+
+        <line class="ln" x1="594" y1="176" x2="621" y2="176"/>
+        <line class="ln" x1="621" y1="92" x2="621" y2="316"/>
+        <line class="ln" x1="621" y1="92" x2="647" y2="92" marker-end="url(#m-lin)"/>
+        <line class="ln" x1="621" y1="148" x2="647" y2="148" marker-end="url(#m-lin)"/>
+        <line class="ln" x1="621" y1="260" x2="647" y2="260" marker-end="url(#m-lin)"/>
+        <line class="ln" x1="621" y1="316" x2="647" y2="316" marker-end="url(#m-lin)"/>
+
+        <rect class="box-gold" x="648" y="72" width="292" height="40" rx="5"/>
+        <text class="nd on-gold" x="661" y="97">price_change_over_months</text>
+        <rect class="box-gold" x="648" y="128" width="292" height="40" rx="5"/>
+        <text class="nd on-gold" x="661" y="153">price_change_over_years</text>
+        <rect class="box-gold" x="680" y="184" width="292" height="40" rx="5"/>
+        <text class="nd on-gold" x="693" y="209">biggest_price_change_for_ten_products</text>
+        <polyline class="ln" points="664,168 664,204 679,204" marker-end="url(#m-lin)"/>
+        <rect class="box" x="648" y="240" width="292" height="40" rx="5"/>
+        <text class="nd" x="661" y="265">most_expensive_provience</text>
+        <rect class="box" x="648" y="296" width="292" height="40" rx="5"/>
+        <text class="nd" x="661" y="321">rolling_average_price</text>
+      </svg>
+    </div>
+    <figcaption>Arrows are dbt <code>source()</code> and <code>ref()</code> dependencies. The three yellow models feed the report page. The other two are in the Power BI model but not on the page yet.</figcaption>
+  </figure>
+
+  <h3>Schema names</h3>
+  <p>By default dbt puts the target schema in front of a custom schema name, which here would give <code>SILVER_BRONZE</code> and <code>SILVER_GOLD</code>. A small override of <code>generate_schema_name</code> returns the custom name unchanged, so the models land in <code>BRONZE</code>, <code>SILVER</code> and <code>GOLD</code>.</p>
+  <div class="code">
+    <p class="label">statscan_dbt/macros/generate_schema.sql</p>
+<pre><code>{% macro generate_schema_name(custom_schema_name, node) -%}
+    {%- set default_schema = target.schema -%}
+    {%- if custom_schema_name is none -%}
+        {{ default_schema }}
+    {%- else -%}
+        {{ custom_schema_name | trim }}
+    {%- endif -%}
+{%- endmacro %}</code></pre>
+  </div>
+
+  <h3>Gold models</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Model</th><th>Question</th><th>How</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>price_change_over_months</code></td>
+          <td>How much did the price move since last month?</td>
+          <td><code>LAG(average_price)</code> for each province and product, then the change in dollars and percent.</td>
+        </tr>
+        <tr>
+          <td><code>price_change_over_years</code></td>
+          <td>How much did it move since the same month last year?</td>
+          <td><code>LAG(average_price, 12)</code> over the same partition.</td>
+        </tr>
+        <tr>
+          <td><code>biggest_price_change_for_ten_products</code></td>
+          <td>Which ten products rose the most in Canada over the year?</td>
+          <td>Latest month and Canada only, ranked by percent change with <code>DENSE_RANK()</code>, top 10 kept.</td>
+        </tr>
+        <tr>
+          <td><code>most_expensive_provience</code></td>
+          <td>Which three provinces charge the most for each product?</td>
+          <td><code>DENSE_RANK()</code> on price within each product for the latest month, with Canada left out.</td>
+        </tr>
+        <tr>
+          <td><code>rolling_average_price</code></td>
+          <td>What does the trend look like without the monthly noise?</td>
+          <td>3-month and 12-month moving averages over <code>ROWS BETWEEN</code> window frames.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="code">
+    <p class="label">statscan_dbt/models/gold/price_change_over_years.sql</p>
+<pre><code>WITH price_change_over_year AS
+(
+    SELECT
+        reference_date,
+        geography_location,
+        products,
+        average_price,
+        LAG(average_price, 12) OVER (
+            PARTITION BY geography_location, products
+            ORDER BY reference_date
+        ) AS prev_year_price
+    FROM
+        {{ ref('silver_average_price') }}
+)
+SELECT
+    reference_date,
+    geography_location,
+    products,
+    average_price,
+    prev_year_price,
+    average_price - prev_year_price AS price_change,
+    ROUND((average_price - prev_year_price)
+        / NULLIF(prev_year_price, 0) * 100, 2) AS precentage_change
+FROM
+    price_change_over_year</code></pre>
+  </div>
+  <ul>
+    <li><code>LAG(average_price, 12)</code> steps back 12 rows. Each of the 1,308 product and region series is an unbroken run of months, so 12 rows back is always the same month a year earlier.</li>
+    <li>Percent changes divide by <code>NULLIF(previous price, 0)</code>, so a zero price returns NULL instead of a division error.</li>
+    <li>The moving averages only appear when the window is full. <code>COUNT(average_price)</code> skips NULLs, so a window that includes one of the 34 missing prices stays empty instead of averaging fewer months.</li>
+  </ul>
+</section>
+
+<section id="report" aria-labelledby="h-report">
+  <header class="step-head">
+    <span class="step-no" aria-hidden="true">5</span>
+    <div class="step-title">
+      <h2 id="h-report">Report in Power BI</h2>
+      <p class="step-meta">Power BI Desktop · <a href="https://github.com/pateldhruvkumar/statcan-food-prices/blob/main/power_bi/power_bi_dashboard.pbix">power_bi/power_bi_dashboard.pbix</a></p>
+    </div>
+  </header>
+  <p>Power BI connects to Snowflake and brings all five gold tables into its model. Three lookup tables, Product Lookup, Province Lookup and Date Lookup, feed the slicers.</p>
+
+  <figure>
+    <div class="dg-wrap">
+      <svg class="wf" viewBox="0 0 1280 720" role="img" aria-label="Report page layout. A large product slicer fills the top left. Province and month slicers sit at the top right, above three cards for average price, previous month price and price change. A table of the top 10 year-over-year increases in Canada runs across the middle, and a clustered bar chart of year-over-year change by province sits at the bottom left.">
+        <rect class="pg" x="2" y="2" width="1276" height="716" rx="8"/>
+
+        <rect class="vs" x="16" y="16" width="800" height="200" rx="6"/>
+        <text class="wt" x="40" y="56">BUTTON SLICER</text>
+        <text class="wh" x="40" y="92">Product</text>
+        <text class="wm" x="40" y="124">Product Lookup[PRODUCTS]</text>
+
+        <rect class="vs" x="832" y="16" width="208" height="72" rx="6"/>
+        <text class="wt" x="852" y="46">SLICER</text>
+        <text class="wh-s" x="852" y="76">Province</text>
+
+        <rect class="vs" x="1056" y="16" width="208" height="72" rx="6"/>
+        <text class="wt" x="1076" y="46">SLICER</text>
+        <text class="wh-s" x="1076" y="76">Month</text>
+
+        <rect class="vs" x="832" y="104" width="208" height="104" rx="6"/>
+        <text class="wt" x="852" y="138">CARD</text>
+        <text class="wh-s" x="852" y="172">Average price</text>
+
+        <rect class="vs" x="1056" y="104" width="208" height="104" rx="6"/>
+        <text class="wt" x="1076" y="138">CARD</text>
+        <text class="wh-s" x="1076" y="170">Previous month</text>
+        <text class="wh-s" x="1076" y="196">price</text>
+
+        <rect class="vs" x="1056" y="224" width="208" height="104" rx="6"/>
+        <text class="wt" x="1076" y="258">CARD</text>
+        <text class="wh-s" x="1076" y="292">Price change</text>
+
+        <rect class="vs" x="16" y="232" width="920" height="192" rx="6"/>
+        <text class="wt" x="40" y="272">TABLE</text>
+        <text class="wh" x="40" y="308">Top 10 year-over-year increases, Canada</text>
+        <text class="wm" x="40" y="340">BIGGEST_PRICE_CHANGE_FOR_TEN_PRODUCTS</text>
+
+        <rect class="vs" x="16" y="440" width="504" height="264" rx="6"/>
+        <text class="wt" x="40" y="480">CLUSTERED BAR CHART</text>
+        <text class="wh" x="40" y="516">Year-over-year change by province</text>
+        <text class="wm" x="40" y="548">PRICE_CHANGE_OVER_YEARS</text>
+      </svg>
+    </div>
+    <figcaption>Report page 1 at 1280 × 720, redrawn from the visual positions stored in the .pbix file.</figcaption>
+  </figure>
+
+  <p>The three cards read from <code>PRICE_CHANGE_OVER_MONTHS</code> and show the selected product's price for the chosen month and province, the price one month earlier, and the change in dollars. The bar chart compares the year-over-year percent change across provinces, using <code>PRICE_CHANGE_OVER_YEARS</code>. The table lists the ten biggest year-over-year increases in Canada.</p>
+
+  <h3>Top 10 increases, August 2026</h3>
+  <p>This is what <code>biggest_price_change_for_ten_products</code> returns for the latest month in the data, compared with August 2025.</p>
+  <div class="tbl">
+    <table>
+      <thead>
+        <tr><th class="num">Rank</th><th>Product</th><th class="num">Aug 2025</th><th class="num">Aug 2026</th><th class="num">Change</th><th class="num">Change %</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td>Beef striploin cuts, per kilogram</td><td class="num">$30.80</td><td class="num">$35.90</td><td class="num">+$5.10</td><td class="num">+16.56%</td></tr>
+        <tr><td class="num">2</td><td>Canned salmon, 213 grams</td><td class="num">$4.84</td><td class="num">$5.59</td><td class="num">+$0.75</td><td class="num">+15.50%</td></tr>
+        <tr><td class="num">3</td><td>Romaine lettuce, unit</td><td class="num">$2.77</td><td class="num">$3.17</td><td class="num">+$0.40</td><td class="num">+14.44%</td></tr>
+        <tr><td class="num">4</td><td>Salmon, per kilogram</td><td class="num">$24.26</td><td class="num">$27.70</td><td class="num">+$3.44</td><td class="num">+14.18%</td></tr>
+        <tr><td class="num">5</td><td>Deodorant, 85 grams</td><td class="num">$7.31</td><td class="num">$8.31</td><td class="num">+$1.00</td><td class="num">+13.68%</td></tr>
+        <tr><td class="num">6</td><td>Bananas, per kilogram</td><td class="num">$1.68</td><td class="num">$1.89</td><td class="num">+$0.21</td><td class="num">+12.50%</td></tr>
+        <tr><td class="num">7</td><td>Cantaloupe, unit</td><td class="num">$2.51</td><td class="num">$2.81</td><td class="num">+$0.30</td><td class="num">+11.95%</td></tr>
+        <tr><td class="num">8</td><td>Whole chicken, per kilogram</td><td class="num">$6.38</td><td class="num">$7.13</td><td class="num">+$0.75</td><td class="num">+11.76%</td></tr>
+        <tr><td class="num">9</td><td>Lemons, unit</td><td class="num">$0.97</td><td class="num">$1.08</td><td class="num">+$0.11</td><td class="num">+11.34%</td></tr>
+        <tr><td class="num">10</td><td>Ground beef, per kilogram</td><td class="num">$15.06</td><td class="num">$16.75</td><td class="num">+$1.69</td><td class="num">+11.22%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="next" aria-labelledby="h-next">
+  <div class="plain-head"><h2 id="h-next">Next steps</h2></div>
+  <ul>
+    <li>Use the CPI data. <code>silver_cpi</code> is built, but no gold model reads it yet. Putting product prices next to the CPI would show which items are rising faster than inflation.</li>
+    <li>Put <code>most_expensive_provience</code> and <code>rolling_average_price</code> on the report. Both tables are already in the Power BI model.</li>
+    <li>Add dbt tests (<code>not_null</code>, <code>unique</code>, <code>accepted_values</code>) and generate the dbt docs site.</li>
+    <li>Have <code>upload_to_s3.py</code> loop over every year instead of editing the <code>YEAR</code> constant.</li>
+    <li>Schedule a monthly run and switch the dbt models to incremental, so each refresh only processes the new month.</li>
+  </ul>
+</section>
+
+<footer class="foot">
+  <p>Source data: Statistics Canada, tables <a href="https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1810024501">18-10-0245-01</a> and <a href="https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1810000401">18-10-0004-01</a>.</p>
+  <p>Code: <a href="https://github.com/pateldhruvkumar/statcan-food-prices">github.com/pateldhruvkumar/statcan-food-prices</a></p>
+</footer>
+
+</div>
+
+</body></html>
