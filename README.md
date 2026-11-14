@@ -319,7 +319,7 @@ Open `power_bi/power_bi_dashboard.pbix` in Power BI Desktop. Update the Snowflak
 
 ### 8. Rebuild the pipeline explorer (optional)
 
-`site/explorer.html` is an interactive page that follows one price row through every step. It embeds the yearly CSVs and recomputes the gold models in the browser, so rebuild it after the data or the dbt logic changes:
+`site/explorer.html` is an interactive page that follows one price row through every step, live at **https://statcan.dhruvpatel.app**. It embeds the yearly CSVs and recomputes the gold models in the browser, so rebuild it after the data or the dbt logic changes:
 
 ```powershell
 python tools/explorer/build.py
