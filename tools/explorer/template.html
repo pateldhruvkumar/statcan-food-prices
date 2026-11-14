@@ -25,6 +25,8 @@
   --drop-soft: #2b1613;
   --warn: #ffc961;
   --warn-soft: #2a2110;
+  --red: #ff3b3b;
+  --red-hover: #ff5c5c;
   --font-display: "Archivo", "Arial Black", Arial, sans-serif;
   --font-body: "Outfit", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
@@ -47,10 +49,14 @@ code { font-family: var(--font-mono); font-size: 0.84em; background: var(--panel
 .mono-l { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
 
 /* Header bar */
-.bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-.bar-t { display: grid; gap: 4px; min-width: 0; flex: 1 1 360px; }
-.bar > .pill { flex: none; }
-h1 { font-family: var(--font-body); font-weight: 700; font-size: clamp(1.15rem, 0.9rem + 1vw, 1.75rem); line-height: 1.15; letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; }
+.topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 24px; padding-block: 6px 18px; border-bottom: 1px solid var(--rule); }
+.topbar > * { min-width: 0; }
+.topbar .mono-l { justify-self: start; white-space: nowrap; }
+#counter { white-space: nowrap; }
+h1 { justify-self: center; text-align: center; max-width: 34ch; font-family: var(--font-display); font-stretch: 112%; font-weight: 800; font-size: clamp(1.1rem, 0.8rem + 1vw, 1.6rem); line-height: 1.15; letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; }
+.topbar .cta { justify-self: end; }
+.pill.red { background: var(--red); border-color: var(--red); color: #fff; }
+.pill.red:hover { background: var(--red-hover); border-color: var(--red-hover); color: #fff; }
 .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 26px; border-radius: 999px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; cursor: pointer; white-space: nowrap; }
 .pill:hover { border-color: var(--accent); color: var(--accent); }
 .pill.lime { background: var(--accent); border-color: var(--accent); color: var(--tag-ink); }
@@ -240,7 +246,6 @@ tr.mine td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .up { color: var(--drop); }
 .down { color: var(--add); }
 
-.foot { display: grid; gap: 4px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--ink-2); }
 
 @media (max-width: 1100px) {
   .story { grid-template-columns: minmax(0, 1fr); gap: 28px; }
@@ -264,7 +269,10 @@ tr.mine td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .transport #next { min-width: 0; }
   .cards { grid-template-columns: minmax(0, 1fr); }
   .bar { grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 4.4rem; }
-  .bar-t + .pill { display: none; }
+  .topbar { grid-template-columns: minmax(0, 1fr) auto; gap: 14px 12px; }
+  .topbar h1 { grid-column: 1 / -1; grid-row: 2; justify-self: start; text-align: left; }
+  .topbar .cta { min-height: 40px; padding: 0 16px; font-size: 0.72rem; }
+  .topbar .mono-l { white-space: normal; font-size: 0.7rem; letter-spacing: 0.12em; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dg #packet, .dg .node rect, .dg .e { transition: none; }
@@ -274,12 +282,10 @@ tr.mine td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 <div class="frame">
 
-<header class="bar">
-  <div class="bar-t">
-    <p class="mono-l">Project story · <span id="counter">00 / 12</span></p>
-    <h1>StatCan Food Prices – Snowflake + dbt pipeline</h1>
-  </div>
-  <a class="pill" href="https://statcan-food-prices-site.vercel.app/">Read the write-up</a>
+<header class="topbar">
+  <p class="mono-l">Project story · <span id="counter">00 / 12</span></p>
+  <h1>StatCan Food Prices – Snowflake + dbt Pipeline</h1>
+  <a class="pill red cta" href="https://statcan-food-prices-site.vercel.app/">Read the write-up</a>
 </header>
 
 <section class="trace" aria-label="Trace controls">
@@ -322,10 +328,6 @@ tr.mine td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
   <div class="col" id="right"></div>
 </section>
 
-<footer class="foot">
-  <p>Every value comes from the project's real yearly CSV files: 141,432 price rows for 110 products in 13 regions, January 2017 to August 2026. Gold-layer numbers are recomputed in the browser with the same logic as the dbt SQL, including its NULL handling.</p>
-  <p>Data: Statistics Canada tables 18-10-0245-01 (average retail prices) and 18-10-0004-01 (CPI). Console output is reconstructed from what each script prints, using the real row counts and file sizes.</p>
-</footer>
 </div>
 
 <script>
