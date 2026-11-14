@@ -750,8 +750,7 @@ function stepContent(i) {
     const yrs = Object.entries(D.years).map(([yy, v]) => `${yy === y ? "<b style='color:var(--tag)'>" : ""}Year: ${yy}\nAverage Shape:  (${v.a[0]}, 15)\nCPI Shape:  (${v.c[0]}, 15)${yy === y ? "</b>" : ""}`).join("\n\n");
     const tA = Object.values(D.years).reduce((a, v) => a + v.a[0], 0), tC = Object.values(D.years).reduce((a, v) => a + v.c[0], 0);
     Rt = where("Where it lives now", `data/loading/average-price/${fname}`, `<span>file <b>${mb(Y.a[1])}</b></span><span>rows in file <b>${fmtInt(Y.a[0])}</b></span><span>files written <b>20</b></span>`) +
-      logBlock(`<span class="dim">$ python start/split_data.py</span>\n${yrs}\n<span class="ok">Avg Total Count: ${tA}\nOriginal Avg Count: ${D.rawRows}</span>\nCPI Total Count: ${tC}\nOriginal CPI Count: ${D.cpiRaw}\n...\nSaved data for ${y}`, "Console · python start/split_data.py") +
-      rowTable(rawRows(1), "Your row in the yearly file");
+      logBlock(`<span class="dim">$ python start/split_data.py</span>\n${yrs}\n<span class="ok">Avg Total Count: ${tA}\nOriginal Avg Count: ${D.rawRows}</span>\nCPI Total Count: ${tC}\nOriginal CPI Count: ${D.cpiRaw}\n...\nSaved data for ${y}`, "Console · python start/split_data.py");
     break;
   }
   case 2: {
