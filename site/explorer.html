@@ -412,11 +412,6 @@ const money = (c) => (c == null ? '<span class="null">NULL</span>' : "$" + (c / 
 const dollars = (v) => (v == null ? '<span class="null">NULL</span>' : v.toFixed(2));
 const signed = (c) => (c == null ? '<span class="null">NULL</span>' : (c > 0 ? "+" : "") + (c / 100).toFixed(2));
 const pctS = (v) => (v == null ? '<span class="null">NULL</span>' : (v > 0 ? "+" : "") + v.toFixed(2) + "%");
-const showStr = (s) => {
-  const t = esc(s);
-  const m = t.match(/^(.*?)( +)$/);
-  return "'" + (m ? m[1] + '<span class="sp" title="trailing space">' + "␠".repeat(m[2].length) + "</span>" : t) + "'";
-};
 const csvField = (v) => (/[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
 const splitName = (name) => { const i = name.lastIndexOf(","); return i < 0 ? [name.trim(), ""] : [name.slice(0, i).trim(), name.slice(i + 1).trim()]; };
 
@@ -623,25 +618,6 @@ function logBlock(lines, label) {
 function where(label, path, stats) {
   return `<div class="where"><h3>${label}</h3><span class="path">${path}</span>${stats ? `<div class="stats">${stats}</div>` : ""}</div>`;
 }
-const BADGE = { same: ["b-same", "unchanged"], add: ["b-add", "added"], chg: ["b-chg", "changed"], ren: ["b-chg", "renamed"], drop: ["b-drop", "dropped"], null: ["b-null", "NULL"] };
-function rowTable(rows, title) {
-  const counts = {};
-  rows.forEach((r) => { counts[r.st] = (counts[r.st] || 0) + 1; });
-  const sum = Object.entries(counts).map(([k, n]) => `<span class="badge ${BADGE[k][0]}">${n} ${BADGE[k][1]}</span>`).join("");
-  const body = rows.map((r) => `<tr class="${r.st === "drop" ? "dropped" : ""}"><td class="k">${esc(r.k)}</td><td class="v">${r.old != null ? `<span class="old">${r.old}</span>` : ""}${r.v}</td><td><span class="badge ${BADGE[r.st][0]}">${BADGE[r.st][1]}</span>${r.note ? `<div class="meta" style="margin-top:3px">${r.note}</div>` : ""}</td></tr>`).join("");
-  return `<div style="display:grid;gap:8px;min-width:0"><h3>${title || "Your row right now"}</h3><div class="summary">${sum}</div>
-    <div class="tbl"><table><thead><tr><th>Column</th><th>Value</th><th>Change</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
-}
-const rawVal = (k, v) => (v === "" ? '<span class="null">(empty)</span>' : k === "Products" ? showStr(v).slice(1, -1) : esc(v));
-function rawRows(stage) {
-  const r = rawRow();
-  return RAWCOLS.map((k) => {
-    const v = r[k];
-    if (stage < 4) return { k, v: rawVal(k, v), st: "same" };
-    if (stage === 4 && v === "") return { k, v: '<span class="null">NULL</span>', old: "(empty)", st: "null", note: "EMPTY_FIELD_AS_NULL" };
-    return { k, v: v === "" ? '<span class="null">NULL</span>' : rawVal(k, v), st: "same" };
-  });
-}
 
 /* ---------- chart ---------- */
 function seriesChart(mode) {
@@ -686,29 +662,6 @@ function seriesChart(mode) {
 document.addEventListener("click", (e) => { const r = e.target.closest(".chart .hit"); if (r) { st.m = +r.dataset.m; render(); } });
 
 /* ---------- step content ---------- */
-function silverRows(full) {
-  const r = rawRow(); const c = priceAt(st.g, st.p, st.m);
-  const rows = [
-    { k: "reference_date", old: "REF_DATE " + esc(r.REF_DATE), v: MONTHS[st.m] + "-01", st: "chg", note: "TRY_TO_DATE(REF_DATE || '-01'), now a DATE" },
-    { k: "geography_location", old: "GEO", v: "'" + esc(r.GEO) + "'", st: "ren", note: "VARCHAR(255)" },
-    { k: "dguid", old: "DGUID", v: "'" + esc(r.DGUID) + "'", st: "ren" },
-    { k: "products", old: /\s$/.test(r.Products) ? "Products " + showStr(r.Products) : "Products", v: showStr(r.Products.trim()), st: /\s$/.test(r.Products) ? "chg" : "ren", note: /\s$/.test(r.Products) ? "TRIM removed the trailing space" : "TRIM(CAST(… AS VARCHAR(255)))" },
-    { k: "coordinates", old: "COORDINATE", v: "'" + esc(r.COORDINATE) + "'", st: "ren" },
-    { k: "average_price", old: "VALUE " + (r.VALUE === "" ? "NULL" : esc(r.VALUE)), v: c == null ? '<span class="null">NULL</span>' : (c / 100).toFixed(2), st: c == null ? "null" : "chg", note: "TRY_CAST(… AS NUMBER(6,2))" },
-  ];
-  if (full) ["UOM", "UOM_ID", "SCALAR_FACTOR", "SCALAR_ID", "VECTOR", "STATUS", "SYMBOL", "TERMINATED", "DECIMALS"].forEach((k) => rows.push({ k, v: r[k] === "" ? '<span class="null">NULL</span>' : esc(r[k]), st: "drop" }));
-  return rows;
-}
-function goldBase() {
-  const c = priceAt(st.g, st.p, st.m);
-  return [
-    { k: "reference_date", v: MONTHS[st.m] + "-01", st: "same" },
-    { k: "geography_location", v: "'" + esc(GEOS[st.g]) + "'", st: "same" },
-    { k: "products", v: showStr(PRODS[st.p].trim()), st: "same" },
-    { k: "average_price", v: c == null ? '<span class="null">NULL</span>' : (c / 100).toFixed(2), st: c == null ? "null" : "same" },
-  ];
-}
-const dropDG = [{ k: "dguid", v: "", st: "drop" }, { k: "coordinates", v: "", st: "drop" }];
 function head(i, title, meta) {
   return `<header class="s-head"><p class="kicker">Step ${pad2(i)} · ${esc(STEPS[i].short)}</p><h2>${title}</h2><p class="meta">${meta}</p></header>`;
 }
@@ -739,7 +692,7 @@ function stepContent(i) {
       ${/\s$/.test(r.Products) ? `<div class="callout warn"><b>The product name ends in a space.</b><span>StatCan publishes <code>"${esc(r.Products)}"</code> with a trailing space. Watch for it in silver.</span></div>` : ""}</div>` +
       codeBlock("start/split_data.py", "»df_average = pd.read_csv('.../datasets/avg/18100245.csv')\n»df_provience = pd.read_csv('.../datasets/provience-wise/18100004.csv')", "start/split_data.py") + cpiCard(0);
     Rt = where("Where it lives", "datasets/avg/18100245.csv", `<span>file <b>19.0 MB</b></span><span>rows <b>${fmtInt(D.rawRows)}</b></span><span>columns <b>15</b></span>`) +
-      logBlock(`<span class="dim">$ grep '^${esc(r.REF_DATE)},.*,${esc(r.VECTOR)},' datasets/avg/18100245.csv</span>\n${esc(line)}`, "The line in the file") + rowTable(rawRows(0), "Your row, parsed");
+      logBlock(`<span class="dim">$ grep '^${esc(r.REF_DATE)},.*,${esc(r.VECTOR)},' datasets/avg/18100245.csv</span>\n${esc(line)}`, "The line in the file");
     break;
   }
   case 1: {
@@ -750,8 +703,7 @@ function stepContent(i) {
     const yrs = Object.entries(D.years).map(([yy, v]) => `${yy === y ? "<b style='color:var(--tag)'>" : ""}Year: ${yy}\nAverage Shape:  (${v.a[0]}, 15)\nCPI Shape:  (${v.c[0]}, 15)${yy === y ? "</b>" : ""}`).join("\n\n");
     const tA = Object.values(D.years).reduce((a, v) => a + v.a[0], 0), tC = Object.values(D.years).reduce((a, v) => a + v.c[0], 0);
     Rt = where("Where it lives now", `data/loading/average-price/${fname}`, `<span>file <b>${mb(Y.a[1])}</b></span><span>rows in file <b>${fmtInt(Y.a[0])}</b></span><span>files written <b>20</b></span>`) +
-      logBlock(`<span class="dim">$ python start/split_data.py</span>\n${yrs}\n<span class="ok">Avg Total Count: ${tA}\nOriginal Avg Count: ${D.rawRows}</span>\nCPI Total Count: ${tC}\nOriginal CPI Count: ${D.cpiRaw}\n...\nSaved data for ${y}`, "Console · python start/split_data.py") +
-      rowTable(rawRows(1), "Your row in the yearly file");
+      logBlock(`<span class="dim">$ python start/split_data.py</span>\n${yrs}\n<span class="ok">Avg Total Count: ${tA}\nOriginal Avg Count: ${D.rawRows}</span>\nCPI Total Count: ${tC}\nOriginal CPI Count: ${D.cpiRaw}\n...\nSaved data for ${y}`, "Console · python start/split_data.py");
     break;
   }
   case 2: {
@@ -759,8 +711,7 @@ function stepContent(i) {
       `<div class="what"><p>With <code>YEAR = ${y}</code>, the script builds a Hive-style key from the dataset name and the year, checks the local file exists, and uploads it. The IAM user it runs as can only <code>s3:PutObject</code> under <code>landing/</code>.</p><p>Still no change to the row. It is now a line inside an S3 object.</p></div>` +
       codeBlock("src/ingestion/upload_to_s3.py", `BUCKET_NAME = "stats-canada-grocery-data"\n»YEAR = ${y}\n\n»s3_key = f"landing/{dataset_name}/year={year}/{local_file.name}"\ns3_client.upload_file(Filename=str(local_file), Bucket=BUCKET_NAME, Key=s3_key)`, "src/ingestion/upload_to_s3.py") + cpiCard(2);
     Rt = where("Where it lives now", `s3://stats-canada-grocery-data/${key}`, `<span>object <b>${mb(Y.a[1])}</b></span><span>objects under landing/ <b>20</b></span>`) +
-      logBlock(`<span class="dim">$ python src/ingestion/upload_to_s3.py</span>\nUploaded: ${fname}\nS3 location: s3://stats-canada-grocery-data/${key}\nUploaded: ${cname}\nS3 location: s3://stats-canada-grocery-data/landing/cpi/year=${y}/${cname}`, "Console · YEAR = " + y) +
-      rowTable(rawRows(2), "Your row inside the object");
+      logBlock(`<span class="dim">$ python src/ingestion/upload_to_s3.py</span>\nUploaded: ${fname}\nS3 location: s3://stats-canada-grocery-data/${key}\nUploaded: ${cname}\nS3 location: s3://stats-canada-grocery-data/landing/cpi/year=${y}/${cname}`, "Console · YEAR = " + y);
     break;
   }
   case 3: {
@@ -770,8 +721,7 @@ function stepContent(i) {
       <p><code>INFER_SCHEMA</code> reads the CSV header of the staged files and creates <code>SOURCE_AVERAGE_PRICE</code> with the same 15 column names. At this moment the table exists but is empty. Your row is readable through the stage, not yet loaded.</p></div>` +
       codeBlock("snowflake/load_average_price.sql", `»CREATE STAGE IF NOT EXISTS STATSCAN_S3_STAGE\n  URL = 's3://stats-canada-grocery-data/landing/'\n»  STORAGE_INTEGRATION = STATSCAN_S3_INT;\n\nCREATE FILE FORMAT IF NOT EXISTS STATSCAN_CSV\n  TYPE = CSV  PARSE_HEADER = TRUE  FIELD_OPTIONALLY_ENCLOSED_BY = '"';\n\n»CREATE TABLE IF NOT EXISTS SOURCE_AVERAGE_PRICE\n  USING TEMPLATE (SELECT ARRAY_AGG(OBJECT_CONSTRUCT(*))\n»    FROM TABLE(INFER_SCHEMA(LOCATION => '@STATSCAN_S3_STAGE/average-price/',\n                            FILE_FORMAT => 'STATSCAN_CSV')));`, "snowflake/load_average_price.sql") + cpiCard(3);
     Rt = where("Where it lives now", `@STATSCAN_S3_STAGE/average-price/year=${y}/${fname}`, `<span>SOURCE_AVERAGE_PRICE rows <b>0</b></span><span>columns from header <b>15</b></span>`) +
-      logBlock(`<span class="dim">LIST @STATSCAN_S3_STAGE/average-price/;</span>\n${list}`, "Snowflake · LIST (name, size in bytes)") +
-      rowTable(rawRows(3), "Your row, read through the stage");
+      logBlock(`<span class="dim">LIST @STATSCAN_S3_STAGE/average-price/;</span>\n${list}`, "Snowflake · LIST (name, size in bytes)");
     break;
   }
   case 4: {
@@ -784,8 +734,7 @@ function stepContent(i) {
       codeBlock("snowflake/load_average_price.sql", `»COPY INTO SOURCE_AVERAGE_PRICE\n»  FROM @STATSCAN_S3_STAGE/average-price/\n  FILE_FORMAT = (FORMAT_NAME = 'STATSCAN_CSV')\n»  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;`, "snowflake/load_average_price.sql") +
       `<div><button class="btn" type="button" id="copyAgain">${again ? "Show the first run" : "Run COPY INTO again"}</button></div>` + cpiCard(4);
     Rt = where("Where it lives now", "STATSCAN_ANALYTICS.SOURCE.SOURCE_AVERAGE_PRICE", `<span>table rows <b>${fmtInt(D.rawRows)}</b></span><span>files loaded <b>10</b></span>`) +
-      logBlock(again ? `<span class="dim">COPY INTO SOURCE_AVERAGE_PRICE ...;  -- second run</span>\nstatus\nCopy executed with 0 files processed.` : `<span class="dim">COPY INTO SOURCE_AVERAGE_PRICE ...;</span>\n${"file".padEnd(48)} status  parsed  loaded\n${rows}`, again ? "Snowflake · re-run" : "Snowflake · COPY INTO result") +
-      rowTable(rawRows(4), "Your row in SOURCE_AVERAGE_PRICE");
+      logBlock(again ? `<span class="dim">COPY INTO SOURCE_AVERAGE_PRICE ...;  -- second run</span>\nstatus\nCopy executed with 0 files processed.` : `<span class="dim">COPY INTO SOURCE_AVERAGE_PRICE ...;</span>\n${"file".padEnd(48)} status  parsed  loaded\n${rows}`, again ? "Snowflake · re-run" : "Snowflake · COPY INTO result");
     break;
   }
   case 5: {
@@ -795,8 +744,7 @@ function stepContent(i) {
       codeBlock("models/bronze/bronze_average_price.sql", `SELECT\n*\n»FROM  {{ source('statscan_analytics_source', 'source_average_price') }}`, "statscan_dbt/models/bronze/bronze_average_price.sql") +
       codeBlock("macros/generate_schema.sql", `{%- if custom_schema_name is none -%}\n    {{ default_schema }}\n{%- else -%}\n»    {{ custom_schema_name | trim }}\n{%- endif -%}`, "statscan_dbt/macros/generate_schema.sql") + cpiCard(5);
     Rt = where("Where it lives now", "STATSCAN_ANALYTICS.BRONZE.BRONZE_AVERAGE_PRICE", `<span>rows <b>${fmtInt(D.rawRows)}</b></span><span>columns changed <b>0</b></span>`) +
-      logBlock(`<span class="dim">$ dbt run</span>\n1 of 9 START sql table model BRONZE.bronze_average_price ....... [RUN]\n<span class="ok">1 of 9 OK created sql table model BRONZE.bronze_average_price .. [SUCCESS 1]</span>\n2 of 9 START sql table model BRONZE.bronze_cpi ................. [RUN]\n<span class="ok">2 of 9 OK created sql table model BRONZE.bronze_cpi ............ [SUCCESS 1]</span>`, "dbt run") +
-      rowTable(rawRows(5), "Your row in bronze");
+      logBlock(`<span class="dim">$ dbt run</span>\n1 of 9 START sql table model BRONZE.bronze_average_price ....... [RUN]\n<span class="ok">1 of 9 OK created sql table model BRONZE.bronze_average_price .. [SUCCESS 1]</span>\n2 of 9 START sql table model BRONZE.bronze_cpi ................. [RUN]\n<span class="ok">2 of 9 OK created sql table model BRONZE.bronze_cpi ............ [SUCCESS 1]</span>`, "dbt run");
     break;
   }
   case 6: {
@@ -806,8 +754,7 @@ function stepContent(i) {
       ${/\s$/.test(PRODS[st.p]) ? `<div class="callout info"><b>The trailing space is removed.</b><span>StatCan publishes ${PRODS.filter((x) => /\s$/.test(x)).length} product names ending in a space. <code>TRIM()</code> strips it here, so a filter or a Power BI slicer on <code>'${esc(PRODS[st.p].trim())}'</code> matches this row.</span></div>` : ""}</div>` +
       codeBlock("models/silver/silver_average_price.sql", `SELECT\n»    TRY_TO_DATE(REF_DATE || '-01', 'YYYY-MM-DD') AS reference_date,\n    CAST(GEO AS VARCHAR(255)) AS geography_location,\n    CAST(DGUID AS VARCHAR(255)) AS dguid,\n»    TRIM(CAST("Products" AS VARCHAR(255))) AS products,\n    CAST(COORDINATE AS VARCHAR(255)) AS coordinates,\n»    TRY_CAST(VALUE::VARCHAR AS NUMBER(6,2)) AS average_price\nFROM\n    {{ ref('bronze_average_price') }}`, "statscan_dbt/models/silver/silver_average_price.sql") + cpiCard(6);
     Rt = where("Where it lives now", "STATSCAN_ANALYTICS.SILVER.SILVER_AVERAGE_PRICE", `<span>rows <b>${fmtInt(D.rawRows)}</b></span><span>columns <b>15 → 6</b></span>`) +
-      logBlock(`3 of 9 START sql table model SILVER.silver_average_price ....... [RUN]\n<span class="ok">3 of 9 OK created sql table model SILVER.silver_average_price .. [SUCCESS 1]</span>\n4 of 9 START sql table model SILVER.silver_cpi ................. [RUN]\n<span class="ok">4 of 9 OK created sql table model SILVER.silver_cpi ............ [SUCCESS 1]</span>`, "dbt run") +
-      rowTable(silverRows(true), "Your row in silver");
+      logBlock(`3 of 9 START sql table model SILVER.silver_average_price ....... [RUN]\n<span class="ok">3 of 9 OK created sql table model SILVER.silver_average_price .. [SUCCESS 1]</span>\n4 of 9 START sql table model SILVER.silver_cpi ................. [RUN]\n<span class="ok">4 of 9 OK created sql table model SILVER.silver_cpi ............ [SUCCESS 1]</span>`, "dbt run");
     break;
   }
   case 7:
@@ -824,11 +771,7 @@ function stepContent(i) {
       seriesChart(yoy ? "yoy" : "mom") +
       codeBlock(`models/gold/${model}.sql`, `»LAG(average_price${yoy ? ", 12" : ""}) OVER (PARTITION BY geography_location, products\n»                    ORDER BY reference_date) AS ${prevName}\n...\naverage_price - ${prevName} AS price_change,\n»ROUND((average_price - ${prevName}) / (NULLIF(${prevName}, 0)) * 100, 2) AS ${pctName}`, "statscan_dbt/models/gold/" + model + ".sql");
     Rt = where("Where it lives now", "STATSCAN_ANALYTICS.GOLD." + model.toUpperCase(), `<span>rows <b>${fmtInt(goldTotals)}</b></span><span>one per silver row</span>`) +
-      logBlock(`${yoy ? 6 : 5} of 9 START sql table model GOLD.${model} ..... [RUN]\n<span class="ok">${yoy ? 6 : 5} of 9 OK created sql table model GOLD.${model} [SUCCESS 1]</span>`, "dbt run") +
-      rowTable([...goldBase(), ...dropDG,
-        { k: prevName, v: money(rc.prev).replace("$", ""), st: rc.prev == null ? "null" : "add", note: rc.prevK >= 0 ? "from " + mShort(s.start + rc.prevK) : "no earlier row" },
-        { k: "price_change", v: signed(rc.change), st: rc.change == null ? "null" : "add" },
-        { k: pctName, v: pctS(rc.pct), st: rc.pct == null ? "null" : "add" }], "Your row in gold");
+      logBlock(`${yoy ? 6 : 5} of 9 START sql table model GOLD.${model} ..... [RUN]\n<span class="ok">${yoy ? 6 : 5} of 9 OK created sql table model GOLD.${model} [SUCCESS 1]</span>`, "dbt run");
     break;
   }
   case 9: {
@@ -841,10 +784,7 @@ function stepContent(i) {
       codeBlock("models/gold/rolling_average_price.sql", `AVG(average_price) OVER (PARTITION BY geography_location, products ORDER BY reference_date\n»                         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS avg_3_month,\nCOUNT(average_price) OVER (... ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS months_in_3_window,\n...\n»CASE WHEN months_in_3_window = 3 THEN ROUND(avg_3_month, 2) END AS moving_avg_3_month,\n»CASE WHEN months_in_12_window = 12 THEN ROUND(avg_12_month, 2) END AS moving_avg_12_month`, "statscan_dbt/models/gold/rolling_average_price.sql") +
       `<div class="callout info"><b>Not on the report yet.</b><span>This table is built on every <code>dbt run</code>, but the Power BI page does not use it.</span></div>`;
     Rt = where("Where it lives now", "STATSCAN_ANALYTICS.GOLD.ROLLING_AVERAGE_PRICE", `<span>rows <b>${fmtInt(goldTotals)}</b></span>`) +
-      logBlock(`7 of 9 START sql table model GOLD.rolling_average_price ....... [RUN]\n<span class="ok">7 of 9 OK created sql table model GOLD.rolling_average_price .. [SUCCESS 1]</span>`, "dbt run") +
-      rowTable([...goldBase(), ...dropDG,
-        { k: "moving_avg_3_month", v: dollars(r3.out), st: r3.out == null ? "null" : "add", note: r3.cnt + " of 3 in window" },
-        { k: "moving_avg_12_month", v: dollars(r12.out), st: r12.out == null ? "null" : "add", note: r12.cnt + " of 12 in window" }], "Your row in gold");
+      logBlock(`7 of 9 START sql table model GOLD.rolling_average_price ....... [RUN]\n<span class="ok">7 of 9 OK created sql table model GOLD.rolling_average_price .. [SUCCESS 1]</span>`, "dbt run");
     break;
   }
   case 10: {
