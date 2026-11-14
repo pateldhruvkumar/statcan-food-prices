@@ -106,6 +106,11 @@ statcan-food-prices/
 │       └── gold/                 # 5 analytics models
 ├── power_bi/
 │   └── power_bi_dashboard.pbix   # Step 5: the dashboard
+├── site/
+│   ├── index.html                # project write-up (deployed on Vercel)
+│   └── explorer.html             # interactive pipeline explorer (generated)
+├── tools/
+│   └── explorer/                 # template + build script for site/explorer.html
 └── datasets/                     # raw StatCan downloads (git-ignored)
 ```
 
@@ -196,7 +201,7 @@ Bronze keeps the raw data as it was loaded. It is the single point of entry from
 
 | Model | What it does |
 |-------|--------------|
-| `silver_average_price` | Converts `REF_DATE` (`2017-01`) to a real `DATE` (`2017-01-01`) using `TRY_TO_DATE`. Renames and casts columns to `reference_date`, `geography_location`, `dguid`, `products`, `coordinates` and `average_price` (`NUMBER(6,2)`). Uses `TRY_CAST`, so bad values become `NULL` instead of failing the run. |
+| `silver_average_price` | Converts `REF_DATE` (`2017-01`) to a real `DATE` (`2017-01-01`) using `TRY_TO_DATE`. Renames and casts columns to `reference_date`, `geography_location`, `dguid`, `products`, `coordinates` and `average_price` (`NUMBER(6,2)`). Uses `TRY_CAST`, so bad values become `NULL` instead of failing the run. `TRIM` removes the trailing space that StatCan publishes on 11 product names (e.g. `"Tofu, 350 grams "`). |
 | `silver_cpi` | Same cleaning for the CPI table, with the value column named `cpi_index`. |
 
 ### 🥇 Gold – business metrics (feed Power BI)
@@ -206,7 +211,7 @@ Bronze keeps the raw data as it was loaded. It is the single point of entry from
 | `price_change_over_months` | How much did the price change versus the previous month? | `LAG(average_price)` partitioned by province and product. Outputs `prev_month_price`, `price_change` and `pct_change`. |
 | `price_change_over_years` | How much did the price change versus the same month last year? | `LAG(average_price, 12)`. Outputs `prev_year_price`, `price_change` and `precentage_change`. |
 | `biggest_price_change_for_ten_products` | Which 10 products rose the most year over year in Canada? | Filters `price_change_over_years` to the latest month and `Canada`, then ranks with `DENSE_RANK()` and keeps the top 10. |
-| `most_expensive_provience` | Which 3 provinces are the most expensive for each product? | `DENSE_RANK() OVER (PARTITION BY products ORDER BY average_price DESC)` for the latest month, excluding `Canada`, keeping ranks 1–3. |
+| `most_expensive_provience` | Which 3 provinces are the most expensive for each product? | `DENSE_RANK() OVER (PARTITION BY products ORDER BY average_price DESC)` for the latest month, excluding `Canada` and rows with no price, keeping ranks 1–3. Without the `average_price IS NOT NULL` filter, Snowflake's default `NULLS FIRST` for `DESC` would rank a missing price as the most expensive. |
 | `rolling_average_price` | What is the smoothed price trend? | 3-month and 12-month moving averages using window frames. The average is only reported when the window is full (`COUNT = 3` or `12`), which avoids misleading partial averages. |
 
 All percentage changes use `NULLIF(prev, 0)` to avoid division-by-zero errors.
@@ -311,6 +316,14 @@ dbt run        # build bronze, silver and gold
 ### 7. Open the dashboard
 
 Open `power_bi/power_bi_dashboard.pbix` in Power BI Desktop. Update the Snowflake data source credentials if prompted, then **Refresh**.
+
+### 8. Rebuild the pipeline explorer (optional)
+
+`site/explorer.html` is an interactive page that follows one price row through every step. It embeds the yearly CSVs and recomputes the gold models in the browser, so rebuild it after the data or the dbt logic changes:
+
+```powershell
+python tools/explorer/build.py
+```
 
 ---
 

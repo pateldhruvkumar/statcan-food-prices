@@ -16,7 +16,9 @@ most_expensive_provience AS
     FROM
         {{ ref('silver_average_price') }}
     WHERE
-        reference_date = (SELECT max_date FROM latest_date) AND geography_location <> 'Canada'    
+        reference_date = (SELECT max_date FROM latest_date)
+        AND geography_location <> 'Canada'
+        AND average_price IS NOT NULL
 )
 
 SELECT

@@ -223,7 +223,7 @@ figcaption { font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); max-wid
       <li>dbt Core</li>
       <li>Power BI</li>
     </ul>
-    <p><a class="repo" href="https://github.com/pateldhruvkumar/statcan-food-prices">Source code on GitHub</a></p>
+    <p><a class="repo" href="https://github.com/pateldhruvkumar/statcan-food-prices">Source code on GitHub</a> · <a class="repo" href="explorer.html">Follow one price through the pipeline</a></p>
   </div>
 
   <figure class="tag-fig">
@@ -596,7 +596,7 @@ COPY INTO SOURCE_AVERAGE_PRICE
         <tr>
           <td>Silver</td>
           <td><code>silver_average_price</code><br><code>silver_cpi</code></td>
-          <td><code>TRY_TO_DATE</code> turns <code>REF_DATE</code> values like <code>2017-01</code> into real dates. Columns are renamed and cast, and <code>VALUE</code> becomes <code>NUMBER(6,2)</code> through <code>TRY_CAST</code>, so a bad value turns into NULL instead of failing the run.</td>
+          <td><code>TRY_TO_DATE</code> turns <code>REF_DATE</code> values like <code>2017-01</code> into real dates. Columns are renamed and cast, and <code>VALUE</code> becomes <code>NUMBER(6,2)</code> through <code>TRY_CAST</code>, so a bad value turns into NULL instead of failing the run. Product names go through <code>TRIM</code>, because StatCan publishes 11 of them with a trailing space.</td>
         </tr>
         <tr>
           <td>Gold</td>
@@ -702,7 +702,7 @@ COPY INTO SOURCE_AVERAGE_PRICE
         <tr>
           <td><code>most_expensive_provience</code></td>
           <td>Which three provinces charge the most for each product?</td>
-          <td><code>DENSE_RANK()</code> on price within each product for the latest month, with Canada left out.</td>
+          <td><code>DENSE_RANK()</code> on price within each product for the latest month, with Canada and missing prices left out. Snowflake sorts NULL first in a descending sort, so without that filter a region with no price would rank as the most expensive.</td>
         </tr>
         <tr>
           <td><code>rolling_average_price</code></td>
