@@ -1,0 +1,961 @@
+<title>StatCan Pipeline Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..900&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: portfolio "project story" — header bar, trace bar, then story text + chapter nav on the left and the live architecture panel + stat card on the right; working detail panels below. Single dark look, matching dhruvpatel.app. */
+:root {
+  --paper: #0b0b0c;
+  --panel: #141618;
+  --panel-2: #1a1d20;
+  --ink: #eef0f1;
+  --ink-2: #9ba2a8;
+  --ink-3: #5d646a;
+  --rule: #24282c;
+  --rule-strong: #3a4045;
+  --accent: #ccff3a;
+  --accent-soft: #1a200f;
+  --tag: #ccff3a;
+  --tag-ink: #0b0b0c;
+  --code-bg: #0f1113;
+  --add: #86e3ad;
+  --add-soft: #11251a;
+  --drop: #ff8f80;
+  --drop-soft: #2b1613;
+  --warn: #ffc961;
+  --warn-soft: #2a2110;
+  --font-display: "Archivo", "Arial Black", Arial, sans-serif;
+  --font-body: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 1rem; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3, p, ul, ol, dl, dd, figure, pre, table { margin: 0; }
+button, select { font: inherit; color: inherit; }
+a { color: var(--accent); text-underline-offset: 3px; }
+code { font-family: var(--font-mono); font-size: 0.84em; background: var(--panel-2); color: var(--ink); padding: 0.08em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.frame { max-width: 1480px; margin-inline: auto; padding-block: 22px 64px; display: grid; gap: 22px; }
+.mono-l { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+
+/* Header bar */
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.bar-t { display: grid; gap: 4px; min-width: 0; flex: 1 1 360px; }
+.bar > .pill { flex: none; }
+h1 { font-family: var(--font-body); font-weight: 700; font-size: clamp(1.15rem, 0.9rem + 1vw, 1.75rem); line-height: 1.15; letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; }
+.pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 26px; border-radius: 999px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.pill:hover { border-color: var(--accent); color: var(--accent); }
+.pill.lime { background: var(--accent); border-color: var(--accent); color: var(--tag-ink); }
+.pill.lime:hover { filter: brightness(1.08); color: var(--tag-ink); }
+.pill.dim { border-color: var(--rule-strong); color: var(--ink-2); }
+.pill:disabled { opacity: 0.35; cursor: default; }
+
+/* Trace bar */
+.trace { background: var(--panel); border: 1px solid var(--rule); border-radius: 24px; padding: 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 330px); gap: 18px 28px; align-items: center; }
+.trace-l { display: grid; gap: 12px; min-width: 0; }
+.pick { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.5fr) minmax(0, 1fr); gap: 10px; }
+.fld { display: grid; gap: 5px; min-width: 0; }
+.fld label { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+select { width: 100%; min-width: 0; padding: 10px 14px; border: 1px solid var(--rule-strong); border-radius: 14px; background: var(--panel-2); color: var(--ink); }
+select:hover { border-color: var(--ink-2); }
+.cases { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cases .lbl { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); margin-right: 6px; }
+.chip { font-family: var(--font-mono); font-size: 0.74rem; padding: 5px 12px; border: 1px solid var(--rule-strong); border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Traced row card */
+.tag { background: var(--panel-2); border: 1px solid var(--rule-strong); border-radius: 18px; display: grid; overflow: hidden; }
+.tag-top { display: grid; padding: 14px 18px 0; min-width: 0; }
+.tag-item { font-weight: 700; font-size: 1.1rem; line-height: 1.15; overflow-wrap: anywhere; }
+.tag-unit { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-2); }
+.tag-price { display: flex; align-items: flex-start; padding: 4px 18px 2px; font-family: var(--font-display); font-stretch: 125%; font-weight: 900; font-size: 3.1rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.tag-price .cur, .tag-price .cents { font-size: 0.42em; margin-top: 0.12em; }
+.tag-price .cur { margin-right: 4px; }
+.tag-price .cents { margin-left: 4px; }
+.tag-price .na { font-family: var(--font-body); font-stretch: 100%; font-weight: 700; font-size: 0.38em; line-height: 1.2; letter-spacing: 0; margin-block: 0.3em 0.2em; color: var(--warn); }
+.tag-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 4px 18px 12px; font-size: 0.8rem; line-height: 1.35; color: var(--ink-2); }
+.tag-meta dt { font-weight: 600; color: var(--ink); }
+.tag-band { justify-self: start; margin: 0 18px 14px; background: var(--accent); color: var(--tag-ink); font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+
+/* Story */
+.story { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 40px; align-items: start; }
+.story-l { display: grid; gap: 28px; min-width: 0; align-content: start; }
+.story-r { display: grid; gap: 18px; min-width: 0; }
+.story-r > *, .story-l > *, .trace > *, .detail > * { min-width: 0; }
+.s-head { display: grid; gap: 14px; }
+.kicker { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+h2 { font-family: var(--font-display); font-stretch: 125%; font-weight: 900; font-size: clamp(2rem, 1.3rem + 2.2vw, 3.1rem); line-height: 0.98; letter-spacing: -0.035em; text-transform: uppercase; text-wrap: balance; color: var(--ink); }
+.meta { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-2); overflow-wrap: anywhere; }
+.meta a { color: inherit; }
+.what { display: grid; gap: 14px; font-size: 1.08rem; line-height: 1.65; color: var(--ink); max-width: 60ch; }
+.what b { color: var(--accent); font-weight: 600; }
+.nav { display: grid; gap: 22px; }
+.rail { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.rail button { width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid var(--rule-strong); background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 0.88rem; cursor: pointer; display: grid; place-items: center; }
+.rail button:hover { border-color: var(--accent); }
+.rail button.done { border-color: var(--ink-2); }
+.rail button.on { background: var(--accent); border-color: var(--accent); color: var(--tag-ink); font-weight: 600; }
+.transport { display: flex; flex-wrap: wrap; gap: 10px; }
+.transport #next { min-width: 220px; }
+.live { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
+.live:hover { color: var(--accent); }
+
+/* Diagram panel */
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 28px; }
+.dg-wrap { overflow-x: auto; padding: 20px; }
+.dg { display: block; width: 100%; min-width: 760px; height: auto; }
+.dg text { font-family: var(--font-body); fill: var(--ink-3); }
+.dg .grp { fill: none; stroke: var(--rule-strong); stroke-width: 1; stroke-dasharray: 5 5; }
+.dg .grp-t { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; fill: var(--ink-2); }
+.dg .node { cursor: pointer; }
+.dg .node rect { fill: var(--panel); stroke: var(--rule-strong); stroke-width: 1; transition: fill .3s, stroke .3s; }
+.dg .node .t { font-size: 16px; font-weight: 700; text-transform: uppercase; fill: #737a80; transition: fill .3s; }
+.dg .node .s { font-family: var(--font-mono); font-size: 11px; fill: #5f666c; transition: fill .3s; }
+.dg .node .mt { font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; fill: #737a80; }
+.dg .node.done rect { stroke: #4a5157; }
+.dg .node.done .t, .dg .node.done .mt { fill: var(--ink-2); }
+.dg .node.done .s { fill: var(--ink-3); }
+.dg .node.on rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.dg .node.on .t, .dg .node.on .mt { fill: var(--ink); }
+.dg .node.on .s { fill: var(--ink); }
+.dg .node.ctx rect { stroke-dasharray: 3 3; }
+.dg .node.ctx.on rect { fill: var(--panel); stroke: var(--accent); stroke-width: 1.25; }
+.dg .node.ctx.on .t { fill: var(--ink-2); }
+.dg .node:hover rect { stroke: var(--accent); }
+.dg .node:focus { outline: none; }
+.dg .node:focus-visible rect { stroke: var(--accent); stroke-width: 2.5; }
+.dg .gold-box { fill: none; stroke: var(--rule-strong); stroke-width: 1; }
+.dg .gold-box.on { stroke: #4a5157; }
+.dg .gold-t { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; fill: var(--ink-2); }
+.dg .e { stroke: #2c3135; stroke-width: 1.5; fill: none; transition: stroke .3s; }
+.dg .e.ctx { stroke-dasharray: 3 4; }
+.dg .e.done { stroke: #5d646a; }
+.dg .e.now { stroke: var(--accent); }
+.dg .ah { fill: #2c3135; }
+.dg .ah-d { fill: #5d646a; }
+.dg .ah-n { fill: var(--accent); }
+.dg .pk { fill: var(--accent); }
+.dg .pk-r { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: .45; }
+.dg #packet { transition: transform .6s cubic-bezier(.5,0,.2,1); }
+.dg-cap { padding: 0 24px 20px; font-size: 0.85rem; color: var(--ink-2); max-width: 90ch; }
+
+/* Stat card */
+.stat { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px 34px; align-items: center; padding: 30px 32px; }
+.stat-v { font-family: var(--font-display); font-stretch: 125%; font-weight: 900; font-size: clamp(2.8rem, 1.8rem + 3.2vw, 4.6rem); line-height: 0.95; letter-spacing: -0.06em; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat-l { font-size: 1.2rem; font-weight: 500; line-height: 1.45; max-width: 34ch; }
+
+/* Detail panels */
+.detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.col { display: grid; gap: 18px; min-width: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 24px; padding: 22px; align-content: start; }
+.col:empty { display: none; }
+h3 { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+h3 a { color: inherit; }
+.callout { padding: 12px 14px; border-radius: 14px; font-size: 0.94rem; line-height: 1.5; display: grid; gap: 4px; color: var(--ink); }
+.callout b { font-weight: 600; color: var(--ink); }
+.callout.warn { background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.callout.warn b { color: var(--warn); }
+.callout.info { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.callout.info b { color: var(--accent); }
+.callout.bad { background: var(--drop-soft); border: 1px solid color-mix(in srgb, var(--drop) 35%, transparent); }
+.callout.bad b { color: var(--drop); }
+pre { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.76rem; line-height: 1.65; tab-size: 4; color: #cfd4d8; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; color: inherit; }
+pre .hl { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--ink); display: inline-block; min-width: 100%; }
+pre .c { color: var(--ink-3); }
+.log { background: #070808; color: var(--ink); max-height: 280px; }
+.log .dim { color: var(--ink-3); }
+.log .ok { color: var(--add); }
+.where { display: grid; gap: 6px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 14px; }
+.where .path { font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); overflow-wrap: anywhere; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.86rem; color: var(--ink-2); }
+.stats b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: 1.5px solid var(--rule-strong); border-radius: 999px; background: transparent; cursor: pointer; font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Row diff table */
+.tbl { overflow-x: auto; min-width: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; line-height: 1.4; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--rule); }
+th:first-child, td:first-child { padding-left: 0; }
+thead th { font-family: var(--font-mono); font-size: 0.64rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1px solid var(--rule-strong); white-space: nowrap; }
+td.k { font-family: var(--font-mono); font-size: 0.78rem; white-space: nowrap; }
+td.v { font-family: var(--font-mono); font-size: 0.78rem; overflow-wrap: anywhere; }
+td.v .old { text-decoration: line-through; color: var(--ink-3); margin-right: 6px; }
+.null { color: var(--warn); font-style: italic; }
+.sp { background: var(--warn-soft); color: var(--warn); border-radius: 3px; padding: 0 2px; }
+.badge { display: inline-block; font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.b-same { color: var(--ink-3); border: 1px solid var(--rule-strong); }
+.b-add { background: var(--add-soft); color: var(--add); }
+.b-chg { background: var(--accent-soft); color: var(--accent); }
+.b-drop { background: var(--drop-soft); color: var(--drop); }
+.b-null { background: var(--warn-soft); color: var(--warn); }
+tr.dropped td.k, tr.dropped td.v { color: var(--ink-3); text-decoration: line-through; }
+tr.mine td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.num { text-align: right; white-space: nowrap; }
+.summary { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Charts */
+.chart { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 14px; padding: 12px 12px 6px; display: grid; gap: 4px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-3); }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .ln { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.chart .ma3 { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.chart .ma12 { fill: none; stroke: var(--warn); stroke-width: 1.6; stroke-dasharray: 5 3; }
+.chart .win { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.chart .cur { fill: var(--accent); stroke: var(--paper); stroke-width: 2; }
+.chart .lag { fill: var(--paper); stroke: var(--accent); stroke-width: 2; }
+.chart .arc { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.chart .arc-t { fill: var(--accent); font-weight: 600; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.76rem; color: var(--ink-2); }
+.legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+
+/* Bars */
+.bars { display: grid; gap: 6px; }
+.bar { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) 4.8rem; gap: 10px; align-items: center; font-size: 0.84rem; }
+.bar .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.bar .tr { position: relative; height: 12px; }
+.bar .fl { position: absolute; top: 0; bottom: 0; background: var(--rule-strong); border-radius: 999px; }
+.bar.top .fl { background: color-mix(in srgb, var(--accent) 55%, var(--panel)); }
+.bar.me .fl { background: var(--accent); }
+.bar .zero { position: absolute; top: -3px; bottom: -3px; border-left: 1px solid var(--ink-2); }
+.bar .vl { text-align: right; font-family: var(--font-mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.bar.me .nm { font-weight: 600; color: var(--accent); }
+
+/* Power BI mock */
+.pbi { background: var(--panel-2); border: 1px solid var(--rule-strong); border-radius: 18px; padding: 16px; display: grid; gap: 16px; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.card { border: 1px solid var(--rule-strong); border-radius: 14px; padding: 12px 14px; display: grid; gap: 2px; }
+.card .cv { font-family: var(--font-display); font-stretch: 115%; font-weight: 800; font-size: 1.55rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.card .cl { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.up { color: var(--drop); }
+.down { color: var(--add); }
+
+.foot { display: grid; gap: 4px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--ink-2); }
+
+@media (max-width: 1100px) {
+  .story { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .trace { grid-template-columns: minmax(0, 1fr); }
+  .trace .tag-fig { max-width: 360px; }
+}
+@media (max-width: 860px) {
+  .detail { grid-template-columns: minmax(0, 1fr); }
+  .pick { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pick .fld:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .frame { gap: 16px; }
+  .trace, .col { border-radius: 18px; padding: 16px; }
+  .panel { border-radius: 20px; }
+  .dg-wrap { padding: 12px; }
+  .stat { grid-template-columns: minmax(0, 1fr); padding: 22px; }
+  .rail { gap: 8px; }
+  .rail button { width: 44px; height: 44px; font-size: 0.8rem; }
+  .transport .pill { flex: 1; padding: 0 16px; }
+  .transport #next { min-width: 0; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .bar { grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 4.4rem; }
+  .bar-t + .pill { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dg #packet, .dg .node rect, .dg .e { transition: none; }
+}
+</style>
+
+
+<div class="frame">
+
+<header class="bar">
+  <div class="bar-t">
+    <p class="mono-l">Project story · <span id="counter">00 / 12</span></p>
+    <h1>StatCan Food Prices – Snowflake + dbt pipeline</h1>
+  </div>
+  <a class="pill" href="https://statcan-food-prices-site.vercel.app/">Read the write-up</a>
+</header>
+
+<section class="trace" aria-label="Trace controls">
+  <div class="trace-l">
+    <p class="kicker" style="font-size:.74rem">Trace one real row</p>
+    <div class="pick">
+      <div class="fld"><label for="selP">Product</label><select id="selP"></select></div>
+      <div class="fld"><label for="selG">Region</label><select id="selG"></select></div>
+      <div class="fld"><label for="selM">Month</label><select id="selM"></select></div>
+    </div>
+    <div class="cases" id="cases"><span class="lbl">Try a case</span></div>
+  </div>
+  <figure class="tag-fig"><div class="tag" id="tag" aria-live="polite"></div></figure>
+</section>
+
+<section class="story">
+  <div class="story-l">
+    <div id="storyText" aria-live="polite" style="display:grid;gap:22px"></div>
+    <div class="nav">
+      <ol class="rail" id="rail" aria-label="Pipeline steps"></ol>
+      <div class="transport">
+        <button class="pill dim" id="prev" type="button">Back</button>
+        <button class="pill lime" id="next" type="button">Next step</button>
+        <button class="pill" id="play" type="button">Play</button>
+      </div>
+      <a class="live" href="https://github.com/pateldhruvkumar/statcan-food-prices">Open the source on GitHub ↗</a>
+    </div>
+  </div>
+  <div class="story-r">
+    <figure class="panel">
+      <div class="dg-wrap" id="dgWrap"><svg class="dg" id="dg" viewBox="0 0 980 520" role="img" aria-label="Pipeline diagram. StatCan CSVs, split script, S3 bucket, Snowflake stage, SOURCE, BRONZE, SILVER, five gold models, Power BI. AWS IAM secures S3 and the STATCAN_WH warehouse runs the loads."></svg></div>
+      <figcaption class="dg-cap">Click any box to jump to that step. The lime box is where your row is now. Dashed boxes are supporting pieces: the IAM identities that guard the bucket, and the warehouse that runs the SQL.</figcaption>
+    </figure>
+    <div class="panel stat" id="stat"></div>
+  </div>
+</section>
+
+<section class="detail" id="insp" aria-live="polite">
+  <div class="col" id="left"></div>
+  <div class="col" id="right"></div>
+</section>
+
+<footer class="foot">
+  <p>Every value comes from the project's real yearly CSV files: 141,432 price rows for 110 products in 13 regions, January 2017 to August 2026. Gold-layer numbers are recomputed in the browser with the same logic as the dbt SQL, including its NULL handling.</p>
+  <p>Data: Statistics Canada tables 18-10-0245-01 (average retail prices) and 18-10-0004-01 (CPI). Console output is reconstructed from what each script prints, using the real row counts and file sizes.</p>
+</footer>
+</div>
+
+<script>
+const D = /*DATA*/null;
+(function () {
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtInt = (n) => n.toLocaleString("en-CA");
+const pad2 = (n) => String(n).padStart(2, "0");
+const MONTHS = D.months, NM = MONTHS.length, LATEST = NM - 1;
+const MNAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const mLabel = (i) => { const [y, m] = MONTHS[i].split("-"); return MNAMES[+m - 1] + " " + y; };
+const mShort = (i) => { const [y, m] = MONTHS[i].split("-"); return MNAMES[+m - 1].slice(0, 3) + " " + y; };
+const GEOS = D.geos.map((g) => g[0]);
+const PRODS = D.products;
+const CAN = 0;
+const RAWCOLS = ["REF_DATE","GEO","DGUID","Products","UOM","UOM_ID","SCALAR_FACTOR","SCALAR_ID","VECTOR","COORDINATE","VALUE","STATUS","SYMBOL","TERMINATED","DECIMALS"];
+const GH = "https://github.com/pateldhruvkumar/statcan-food-prices/blob/main/";
+
+/* ---------- data model ---------- */
+// S[g][p] = { vec, coord, start, raw: [string per row], c: [cents|null per row] }
+const S = GEOS.map(() => []);
+for (const key in D.series) {
+  const [g, p] = key.split("|").map(Number);
+  const [vec, coord, start, vals] = D.series[key];
+  const raw = vals.split(",");
+  S[g][p] = { vec, coord, start, raw, c: raw.map((v) => (v === "" ? null : Math.round(parseFloat(v) * 100))) };
+}
+const ser = (g, p) => S[g][p] || null;
+const idx = (s, m) => (s && m >= s.start && m < s.start + s.raw.length ? m - s.start : -1);
+const priceAt = (g, p, m) => { const s = ser(g, p); const k = idx(s, m); return k < 0 ? undefined : s.c[k]; };
+
+// Snowflake ROUND(x, 2): half away from zero
+const round2 = (x) => (x == null ? null : Math.sign(x) * Math.round(Math.abs(x) * 100 + 1e-9) / 100);
+const lagCalc = (s, k, n) => {
+  const cur = s.c[k]; const prev = k >= n ? s.c[k - n] : null;
+  const change = cur != null && prev != null ? cur - prev : null;
+  const pct = change != null && prev !== 0 ? round2((change / prev) * 100) : null;
+  return { cur, prev, change, pct, prevK: k >= n ? k - n : -1 };
+};
+const rollCalc = (s, k, n) => {
+  let sum = 0, cnt = 0;
+  for (let j = Math.max(0, k - n + 1); j <= k; j++) if (s.c[j] != null) { sum += s.c[j]; cnt++; }
+  return { avg: cnt ? sum / cnt / 100 : null, cnt, out: cnt === n ? round2(sum / cnt / 100) : null };
+};
+// gold: biggest_price_change_for_ten_products (latest month, Canada, pct not null, dense rank desc)
+const TOP = (() => {
+  const rows = [];
+  PRODS.forEach((name, p) => {
+    const s = ser(CAN, p); const k = idx(s, LATEST); if (k < 0) return;
+    const r = lagCalc(s, k, 12); if (r.pct == null) return;
+    rows.push({ p, name, prev: r.prev, cur: r.cur, change: r.change, pct: r.pct });
+  });
+  rows.sort((a, b) => b.pct - a.pct);
+  let rank = 0, last = null;
+  rows.forEach((r) => { if (r.pct !== last) { rank++; last = r.pct; } r.rank = rank; });
+  return { all: rows, top: rows.filter((r) => r.rank <= 10) };
+})();
+// gold: most_expensive_provience for product p (latest month, GEO <> Canada, price not NULL, dense rank desc)
+const mostExp = (p) => {
+  const rows = [];
+  GEOS.forEach((name, g) => { if (g === CAN) return; const v = priceAt(g, p, LATEST); if (v === undefined) return; rows.push({ g, name, v }); });
+  // WHERE ... AND average_price IS NOT NULL: missing prices never get a rank
+  const kept = rows.filter((r) => r.v != null).sort((a, b) => b.v - a.v);
+  let rank = 0, last;
+  kept.forEach((r, i) => { if (i === 0 || r.v !== last) { rank++; last = r.v; } r.rank = rank; });
+  return kept.concat(rows.filter((r) => r.v == null).map((r) => ({ ...r, rank: Infinity })));
+};
+const goldTotals = (() => {
+  let n = 0; for (const k in D.series) n += D.series[k][3].split(",").length; return n;
+})();
+const mostExpCount = (() => { let n = 0; PRODS.forEach((_, p) => { n += mostExp(p).filter((r) => r.rank < 4).length; }); return n; })();
+
+/* ---------- formatting ---------- */
+const money = (c) => (c == null ? '<span class="null">NULL</span>' : "$" + (c / 100).toFixed(2));
+const dollars = (v) => (v == null ? '<span class="null">NULL</span>' : v.toFixed(2));
+const signed = (c) => (c == null ? '<span class="null">NULL</span>' : (c > 0 ? "+" : "") + (c / 100).toFixed(2));
+const pctS = (v) => (v == null ? '<span class="null">NULL</span>' : (v > 0 ? "+" : "") + v.toFixed(2) + "%");
+const showStr = (s) => {
+  const t = esc(s);
+  const m = t.match(/^(.*?)( +)$/);
+  return "'" + (m ? m[1] + '<span class="sp" title="trailing space">' + "␠".repeat(m[2].length) + "</span>" : t) + "'";
+};
+const csvField = (v) => (/[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
+const splitName = (name) => { const i = name.lastIndexOf(","); return i < 0 ? [name.trim(), ""] : [name.slice(0, i).trim(), name.slice(i + 1).trim()]; };
+
+/* ---------- state ---------- */
+const st = { p: PRODS.indexOf("Beef striploin cuts, per kilogram"), g: CAN, m: LATEST, step: 0, playing: false };
+if (st.p < 0) st.p = 0;
+
+function rawRow() {
+  const s = ser(st.g, st.p), k = idx(s, st.m);
+  const v = s.raw[k];
+  return {
+    REF_DATE: MONTHS[st.m], GEO: GEOS[st.g], DGUID: D.geos[st.g][1], Products: PRODS[st.p], UOM: "Dollars", UOM_ID: "81",
+    SCALAR_FACTOR: "units", SCALAR_ID: "0", VECTOR: s.vec, COORDINATE: s.coord, VALUE: v, STATUS: v === "" ? ".." : "",
+    SYMBOL: "", TERMINATED: "", DECIMALS: "2",
+  };
+}
+const yearOf = () => MONTHS[st.m].slice(0, 4);
+
+/* ---------- controls ---------- */
+const selP = $("#selP"), selG = $("#selG"), selM = $("#selM");
+selP.innerHTML = PRODS.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join("");
+function fillGeo() {
+  selG.innerHTML = GEOS.map((n, g) => `<option value="${g}"${ser(g, st.p) ? "" : " disabled"}>${esc(n)}${ser(g, st.p) ? "" : " (not published)"}</option>`).join("");
+}
+function fillMonth() {
+  const s = ser(st.g, st.p);
+  let h = "";
+  for (let i = NM - 1; i >= 0; i--) if (idx(s, i) >= 0) h += `<option value="${i}">${mShort(i)}</option>`;
+  selM.innerHTML = h;
+}
+function snap() {
+  if (!ser(st.g, st.p)) st.g = CAN;
+  const s = ser(st.g, st.p);
+  if (idx(s, st.m) < 0) st.m = st.m < s.start ? s.start : s.start + s.raw.length - 1;
+}
+function syncControls() { fillGeo(); fillMonth(); selP.value = st.p; selG.value = st.g; selM.value = st.m; }
+selP.addEventListener("change", () => { st.p = +selP.value; snap(); render(); });
+selG.addEventListener("change", () => { st.g = +selG.value; snap(); render(); });
+selM.addEventListener("change", () => { st.m = +selM.value; render(); });
+
+const CASES = [
+  { t: "Biggest riser", p: "Beef striploin cuts, per kilogram", g: 0, m: LATEST, step: 10 },
+  { t: "Empty VALUE", p: "Orange juice, 2 litres", g: 12, m: LATEST, step: 4 },
+  { t: "Missing price, filtered", p: "Orange juice, 2 litres", g: 12, m: LATEST, step: 11 },
+  { t: "First month (no LAG)", p: "Butter, 454 grams", g: 0, m: 0, step: 7 },
+  { t: "Territory, no YoY", p: "Butter, 454 grams", g: 11, m: LATEST, step: 8 },
+  { t: "Trailing space", p: "Flatbread and pita, 500 grams ", g: 0, m: LATEST, step: 6 },
+  { t: "Rolling window fills", p: "Eggs, 12", g: 0, m: 2, step: 9 },
+];
+CASES.forEach((c) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = c.t;
+  b.addEventListener("click", () => {
+    const p = PRODS.indexOf(c.p); if (p < 0) return;
+    st.p = p; st.g = c.g; st.m = c.m; snap(); stop(); go(c.step);
+  });
+  $("#cases").appendChild(b);
+});
+
+/* ---------- steps ---------- */
+const STEPS = [
+  { short: "Raw CSV", node: "raw" },
+  { short: "Split", node: "split" },
+  { short: "S3", node: "s3" },
+  { short: "Stage", node: "stage" },
+  { short: "COPY INTO", node: "src" },
+  { short: "Bronze", node: "bronze" },
+  { short: "Silver", node: "silver" },
+  { short: "Month change", node: "mom" },
+  { short: "Year change", node: "yoy" },
+  { short: "Rolling avg", node: "roll" },
+  { short: "Top 10", node: "top" },
+  { short: "Priciest region", node: "exp" },
+  { short: "Power BI", node: "pbi" },
+];
+$("#rail").innerHTML = STEPS.map((s, i) => `<li><button type="button" data-step="${i}" aria-label="Step ${i}: ${s.short}" title="${s.short}">${pad2(i)}</button></li>`).join("");
+$("#rail").addEventListener("click", (e) => { const b = e.target.closest("button[data-step]"); if (b) { stop(); go(+b.dataset.step); } });
+
+/* ---------- diagram ---------- */
+const NW = 158, NH = 64, CX = (c) => 24 + c * 190, RY = [60, 180, 300];
+const NODES = {
+  raw: { x: CX(0), y: RY[0], t: "StatCan", s: ["2 raw CSVs", "prices + CPI"], step: 0 },
+  split: { x: CX(1), y: RY[0], t: "Split", s: ["split_data.py", "20 yearly files"], step: 1 },
+  s3: { x: CX(2), y: RY[0], t: "S3 bucket", s: ["landing/", "year= folders"], step: 2 },
+  stage: { x: CX(3), y: RY[0], t: "Stage", s: ["STATSCAN_S3_STAGE", "INFER_SCHEMA"], step: 3 },
+  src: { x: CX(4), y: RY[0], t: "Source", s: ["COPY INTO", "2 tables"], step: 4 },
+  iam: { x: CX(2), y: RY[1], t: "AWS IAM", s: ["upload user", "Snowflake role"], step: 2, ctx: true },
+  wh: { x: CX(3), y: RY[1], t: "STATCAN_WH", s: ["X-Small", "compute"], step: 4, ctx: true },
+  bronze: { x: CX(4), y: RY[1], t: "Bronze", s: ["select *", "unmodified"], step: 5 },
+  silver: { x: CX(4), y: RY[2], t: "Silver", s: ["typed", "renamed"], step: 6 },
+  pbi: { x: CX(0), y: RY[2], t: "Power BI", s: ["page 1", "3 gold tables"], step: 12 },
+};
+const GX = CX(1) + 4, GW = CX(3) + NW - GX - 4, GY = 288;
+const GOLD = [
+  ["mom", "price_change_over_months", "LAG 1", 7],
+  ["yoy", "price_change_over_years", "LAG 12", 8],
+  ["top", "biggest_price_change_for_ten…", "reads LAG 12", 10],
+  ["roll", "rolling_average_price", "3 + 12 months", 9],
+  ["exp", "most_expensive_provience", "top 3 regions", 11],
+];
+GOLD.forEach(([k, t, s, step], i) => { NODES[k] = { x: GX + 14, y: GY + 34 + i * 36, w: GW - 28, h: 28, t, s: [s], step, gold: true }; });
+const nw = (n) => n.w || NW, nh = (n) => n.h || NH;
+const midY = (n) => n.y + nh(n) / 2, midX = (n) => n.x + nw(n) / 2;
+function buildDiagram() {
+  const svg = $("#dg");
+  const mk = (id, cls) => `<marker id="${id}" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto"><path class="${cls}" d="M0 0L10 5L0 10z"/></marker>`;
+  let h = `<defs>${mk("ah", "ah")}${mk("ahd", "ah-d")}${mk("ahn", "ah-n")}</defs>`;
+  // groups
+  const L = CX(0) - 12, R4 = CX(4) + NW + 12;
+  h += `<text class="grp-t" x="${CX(0)}" y="34">YOUR LAPTOP</text><rect class="grp" x="${L}" y="44" width="${CX(1) + NW + 12 - L}" height="96" rx="16"/>`;
+  h += `<text class="grp-t" x="${CX(2)}" y="34">AWS</text><rect class="grp" x="${CX(2) - 12}" y="44" width="${NW + 24}" height="216" rx="16"/>`;
+  h += `<text class="grp-t" x="${CX(3)}" y="34">SNOWFLAKE · STATSCAN_ANALYTICS</text>`;
+  const sx = CX(3) - 12, by = 268, bot = GY + 34 + 5 * 36 + 8, lx = GX - 10;
+  h += `<path class="grp" d="M${sx + 16} 44 H${R4 - 16} Q${R4} 44 ${R4} 60 V${bot - 16} Q${R4} ${bot} ${R4 - 16} ${bot} H${lx + 16} Q${lx} ${bot} ${lx} ${bot - 16} V${by + 16} Q${lx} ${by} ${lx + 16} ${by} H${sx} V60 Q${sx} 44 ${sx + 16} 44 Z"/>`;
+  h += `<rect class="gold-box" id="goldBox" x="${GX}" y="${GY}" width="${GW}" height="${5 * 36 + 34}" rx="14"/><text class="gold-t" x="${GX + 14}" y="${GY + 21}">GOLD · 5 MODELS</text>`;
+  // edges: [d, toStep, ctx]
+  const E = [];
+  const hz = (a, b) => [`M${a.x + NW} ${midY(a)} H${b.x}`, b.step];
+  E.push(hz(NODES.raw, NODES.split), hz(NODES.split, NODES.s3), hz(NODES.s3, NODES.stage), hz(NODES.stage, NODES.src));
+  E.push([`M${midX(NODES.src)} ${RY[0] + NH} V${RY[1]}`, 5], [`M${midX(NODES.bronze)} ${RY[1] + NH} V${RY[2]}`, 6]);
+  E.push([`M${midX(NODES.iam)} ${RY[1]} V${RY[0] + NH}`, 2, true], [`M${midX(NODES.wh)} ${RY[1]} V${RY[0] + NH}`, 4, true]);
+  const bus = GX + GW + 22;
+  ["mom", "yoy", "roll", "exp"].forEach((k) => { const n = NODES[k]; E.push([`M${NODES.silver.x} ${midY(NODES.silver)} H${bus} V${midY(n)} H${n.x + n.w}`, n.step]); });
+  const yo = NODES.yoy, tp = NODES.top, rx = yo.x + yo.w + 8;
+  E.push([`M${yo.x + yo.w} ${midY(yo) + 4} H${rx} V${midY(tp)} H${tp.x + tp.w}`, 10]);
+  const pb = NODES.pbi, lb = GX - 22;
+  [["mom", -14], ["yoy", 0], ["top", 14]].forEach(([k, off]) => { const n = NODES[k]; E.push([`M${n.x} ${midY(n)} H${lb} V${midY(pb) + off} H${pb.x + NW}`, 12]); });
+  E.forEach(([d, to, ctx]) => { h += `<path class="e${ctx ? " ctx" : ""}" data-to="${to}" d="${d}" marker-end="url(#ah)"/>`; });
+  // nodes
+  for (const k in NODES) {
+    const n = NODES[k];
+    if (n.gold) {
+      h += `<g class="node" data-step="${n.step}" data-k="${k}" tabindex="0" role="button" aria-label="Step ${n.step}: ${n.t}">
+        <rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"/>
+        <text class="mt" x="${n.x + 12}" y="${n.y + 18.5}">${n.t}</text>
+        <text class="s" x="${n.x + n.w - 12}" y="${n.y + 18}" text-anchor="end">${n.s[0]}</text></g>`;
+    } else {
+      h += `<g class="node${n.ctx ? " ctx" : ""}" data-step="${n.step}" data-k="${k}" tabindex="${n.ctx ? -1 : 0}" role="button" aria-label="${n.ctx ? "" : "Step " + n.step + ": "}${n.t}">
+        <rect x="${n.x}" y="${n.y}" width="${NW}" height="${NH}" rx="14"/>
+        <text class="t" x="${midX(n)}" y="${n.y + 26}" text-anchor="middle">${n.t}</text>
+        <text class="s" x="${midX(n)}" y="${n.y + 42}" text-anchor="middle">${n.s[0]}</text>
+        <text class="s" x="${midX(n)}" y="${n.y + 56}" text-anchor="middle">${n.s[1]}</text></g>`;
+    }
+  }
+  h += `<g id="packet"><circle class="pk-r" r="11"/><circle class="pk" r="5.5"/></g>`;
+  svg.innerHTML = h;
+  svg.addEventListener("click", (e) => { const g = e.target.closest(".node"); if (g) { stop(); go(+g.dataset.step); } });
+  svg.addEventListener("keydown", (e) => { const g = e.target.closest(".node"); if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); stop(); go(+g.dataset.step); } });
+}
+buildDiagram();
+function updateDiagram() {
+  const svg = $("#dg");
+  svg.querySelectorAll(".node").forEach((g) => {
+    const s = +g.dataset.step;
+    g.classList.toggle("on", s === st.step);
+    g.classList.toggle("done", s < st.step);
+  });
+  $("#goldBox").classList.toggle("on", st.step >= 7);
+  svg.querySelectorAll(".e").forEach((e) => {
+    const to = +e.dataset.to, ctx = e.classList.contains("ctx");
+    const now = to === st.step && !ctx, done = to < st.step || (ctx && to <= st.step);
+    e.classList.toggle("now", now); e.classList.toggle("done", done && !now);
+    e.setAttribute("marker-end", now ? "url(#ahn)" : done ? "url(#ahd)" : "url(#ah)");
+  });
+  const n = Object.values(NODES).find((n) => n.step === st.step && !n.ctx);
+  $("#packet").setAttribute("style", `transform: translate(${n.x + nw(n) - 2}px, ${n.y + 2}px)`);
+  const wrap = $("#dgWrap");
+  if (wrap.scrollWidth > wrap.clientWidth + 4) {
+    const scale = wrap.scrollWidth / 980;
+    wrap.scrollTo({ left: Math.max(0, (n.x - 140) * scale), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  document.querySelectorAll("#rail button").forEach((b) => { const i = +b.dataset.step; b.classList.toggle("on", i === st.step); b.classList.toggle("done", i < st.step); b.setAttribute("aria-current", i === st.step ? "step" : "false"); });
+  $("#counter").textContent = pad2(st.step) + " / " + pad2(STEPS.length - 1);
+}
+
+/* ---------- shelf tag ---------- */
+function renderTag() {
+  const [item, unit] = splitName(PRODS[st.p]);
+  const c = priceAt(st.g, st.p, st.m);
+  const s = ser(st.g, st.p), k = idx(s, st.m);
+  const yoy = lagCalc(s, k, 12);
+  const price = c == null
+    ? `<p class="tag-price"><span class="na">VALUE is empty (STATUS "..")</span></p>`
+    : `<p class="tag-price"><span class="cur" aria-hidden="true">$</span><span aria-hidden="true">${Math.floor(c / 100)}</span><span class="cents" aria-hidden="true">${String(c % 100).padStart(2, "0")}</span><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">$${(c / 100).toFixed(2)}</span></p>`;
+  const band = yoy.pct != null ? `${yoy.pct > 0 ? "+" : ""}${yoy.pct.toFixed(2)}% in one year` : (k < 12 ? "No row 12 months back" : "Year-over-year is NULL");
+  $("#tag").innerHTML = `<p class="tag-top"><span class="tag-item">${esc(item)}</span><span class="tag-unit">${esc(unit)}</span></p>${price}
+    <dl class="tag-meta"><div><dt>${esc(GEOS[st.g].split(",")[0])}</dt><dd>${mLabel(st.m)}</dd></div>
+    <div><dt>${k >= 12 ? mLabel(st.m - 12) : "12 months earlier"}</dt><dd>${k >= 12 ? money(s.c[k - 12]).replace('class="null"', 'class="null" style="color:inherit"') : "no row"}</dd></div></dl>
+    <p class="tag-band">${band}</p>`;
+}
+
+/* ---------- reusable renderers ---------- */
+function codeBlock(label, src, href) {
+  const lines = src.split("\n").map((l) => {
+    const hl = l.startsWith("»");
+    const t = esc(hl ? l.slice(1) : l).replace(/(--.*$|#.*$)/, '<span class="c">$1</span>');
+    return hl ? `<span class="hl">${t}</span>` : t;
+  }).join("\n");
+  return `<div style="display:grid;gap:6px;min-width:0"><h3>${href ? `<a href="${GH + href}" style="color:inherit">${esc(label)}</a>` : esc(label)}</h3><pre><code>${lines}</code></pre></div>`;
+}
+function logBlock(lines, label) {
+  return `<div style="display:grid;gap:6px;min-width:0"><h3>${label || "Console"}</h3><pre class="log"><code>${lines}</code></pre></div>`;
+}
+function where(label, path, stats) {
+  return `<div class="where"><h3>${label}</h3><span class="path">${path}</span>${stats ? `<div class="stats">${stats}</div>` : ""}</div>`;
+}
+const BADGE = { same: ["b-same", "unchanged"], add: ["b-add", "added"], chg: ["b-chg", "changed"], ren: ["b-chg", "renamed"], drop: ["b-drop", "dropped"], null: ["b-null", "NULL"] };
+function rowTable(rows, title) {
+  const counts = {};
+  rows.forEach((r) => { counts[r.st] = (counts[r.st] || 0) + 1; });
+  const sum = Object.entries(counts).map(([k, n]) => `<span class="badge ${BADGE[k][0]}">${n} ${BADGE[k][1]}</span>`).join("");
+  const body = rows.map((r) => `<tr class="${r.st === "drop" ? "dropped" : ""}"><td class="k">${esc(r.k)}</td><td class="v">${r.old != null ? `<span class="old">${r.old}</span>` : ""}${r.v}</td><td><span class="badge ${BADGE[r.st][0]}">${BADGE[r.st][1]}</span>${r.note ? `<div class="meta" style="margin-top:3px">${r.note}</div>` : ""}</td></tr>`).join("");
+  return `<div style="display:grid;gap:8px;min-width:0"><h3>${title || "Your row right now"}</h3><div class="summary">${sum}</div>
+    <div class="tbl"><table><thead><tr><th>Column</th><th>Value</th><th>Change</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+const rawVal = (k, v) => (v === "" ? '<span class="null">(empty)</span>' : k === "Products" ? showStr(v).slice(1, -1) : esc(v));
+function rawRows(stage) {
+  const r = rawRow();
+  return RAWCOLS.map((k) => {
+    const v = r[k];
+    if (stage < 4) return { k, v: rawVal(k, v), st: "same" };
+    if (stage === 4 && v === "") return { k, v: '<span class="null">NULL</span>', old: "(empty)", st: "null", note: "EMPTY_FIELD_AS_NULL" };
+    return { k, v: v === "" ? '<span class="null">NULL</span>' : rawVal(k, v), st: "same" };
+  });
+}
+
+/* ---------- chart ---------- */
+function seriesChart(mode) {
+  const s = ser(st.g, st.p), k = idx(s, st.m), n = s.raw.length;
+  const W = 640, Hh = 210, L = 46, R = 12, T = 22, B = 24;
+  const vals = s.c.filter((v) => v != null);
+  if (!vals.length) return `<div class="callout warn">This series has no published values, so there is nothing to draw.</div>`;
+  let lo = Math.min(...vals) / 100, hi = Math.max(...vals) / 100;
+  const span = hi - lo || 1; lo -= span * 0.08; hi += span * 0.12;
+  const step = [0.05, 0.1, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50].find((st) => (hi - lo) / st <= 5) || 100;
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const X = (j) => L + (n === 1 ? (W - L - R) / 2 : (j / (n - 1)) * (W - L - R));
+  const Y = (v) => T + (1 - (v - lo) / (hi - lo)) * (Hh - T - B);
+  let g = "";
+  for (let v = lo; v <= hi + 1e-9; v += step) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end">${v.toFixed(step < 1 ? 2 : 0)}</text>`;
+  for (let j = 0; j < n; j++) { const mo = MONTHS[s.start + j]; if (mo.endsWith("-01") || (n <= 14 && j % 3 === 0)) g += `<text x="${X(j)}" y="${Hh - 6}" text-anchor="middle">${n <= 14 ? mShort(s.start + j) : mo.slice(0, 4)}</text>`; }
+  const path = (arr) => { let d = "", pen = false; arr.forEach((v, j) => { if (v == null) { pen = false; return; } d += (pen ? "L" : "M") + X(j).toFixed(1) + " " + Y(v).toFixed(1) + " "; pen = true; }); return d; };
+  let extra = "";
+  if (mode === "roll") {
+    const w3 = Math.max(0, k - 2), w12 = Math.max(0, k - 11);
+    extra += `<rect class="win" x="${X(w12) - 2}" y="${T}" width="${X(k) - X(w12) + 4}" height="${Hh - T - B}" opacity=".55"/>`;
+    extra += `<rect class="win" x="${X(w3) - 2}" y="${T}" width="${X(k) - X(w3) + 4}" height="${Hh - T - B}"/>`;
+    const m3 = s.c.map((_, j) => rollCalc(s, j, 3).out), m12 = s.c.map((_, j) => rollCalc(s, j, 12).out);
+    extra += `<path class="ma12" d="${path(m12)}"/><path class="ma3" d="${path(m3)}"/>`;
+  }
+  g += extra + `<path class="ln" d="${path(s.c.map((v) => (v == null ? null : v / 100)))}"/>`;
+  const lagN = mode === "mom" ? 1 : mode === "yoy" ? 12 : 0;
+  if (lagN && k >= lagN && s.c[k - lagN] != null && s.c[k] != null) {
+    const x0 = X(k - lagN), x1 = X(k), y0 = Y(s.c[k - lagN] / 100), y1 = Y(s.c[k] / 100), top = Math.min(y0, y1) - 26;
+    g += `<path class="arc" d="M${x0} ${y0 - 7} C${x0} ${top}, ${x1} ${top}, ${x1} ${y1 - 7}"/><text class="arc-t" x="${(x0 + x1) / 2}" y="${Math.max(12, top + 4)}" text-anchor="middle">LAG ${lagN}</text>`;
+    g += `<circle class="lag" cx="${x0}" cy="${y0}" r="4.5"/>`;
+  }
+  if (s.c[k] != null) g += `<circle class="cur" cx="${X(k)}" cy="${Y(s.c[k] / 100)}" r="5.5"/>`;
+  else g += `<line x1="${X(k)}" x2="${X(k)}" y1="${T}" y2="${Hh - B}" stroke="var(--warn)" stroke-dasharray="3 3"/><text x="${X(k) + 4}" y="${T + 10}" fill="var(--warn)">NULL</text>`;
+  const hitW = (W - L - R) / Math.max(1, n - 1);
+  for (let j = 0; j < n; j++) g += `<rect class="hit" data-m="${s.start + j}" x="${X(j) - hitW / 2}" y="${T}" width="${hitW}" height="${Hh - T - B}"><title>${mShort(s.start + j)}: ${s.c[j] == null ? "NULL" : "$" + (s.c[j] / 100).toFixed(2)}</title></rect>`;
+  const legend = mode === "roll"
+    ? `<span><i style="border-color:var(--ink)"></i>average_price</span><span><i style="border-color:var(--accent)"></i>moving_avg_3_month</span><span><i style="border-color:var(--warn);border-top-style:dashed"></i>moving_avg_12_month</span><span>Shaded: the 3- and 12-row windows for the selected month</span>`
+    : `<span><i style="border-color:var(--ink)"></i>average_price, ${esc(GEOS[st.g])}</span><span>Yellow: selected row${lagN ? ". Ring: the row LAG(" + lagN + ") reads" : ""}</span>`;
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Price series for ${esc(PRODS[st.p])}">${g}</svg><div class="legend">${legend}<span>Click the chart to pick a month.</span></div></div>`;
+}
+document.addEventListener("click", (e) => { const r = e.target.closest(".chart .hit"); if (r) { st.m = +r.dataset.m; render(); } });
+
+/* ---------- step content ---------- */
+function silverRows(full) {
+  const r = rawRow(); const c = priceAt(st.g, st.p, st.m);
+  const rows = [
+    { k: "reference_date", old: "REF_DATE " + esc(r.REF_DATE), v: MONTHS[st.m] + "-01", st: "chg", note: "TRY_TO_DATE(REF_DATE || '-01'), now a DATE" },
+    { k: "geography_location", old: "GEO", v: "'" + esc(r.GEO) + "'", st: "ren", note: "VARCHAR(255)" },
+    { k: "dguid", old: "DGUID", v: "'" + esc(r.DGUID) + "'", st: "ren" },
+    { k: "products", old: /\s$/.test(r.Products) ? "Products " + showStr(r.Products) : "Products", v: showStr(r.Products.trim()), st: /\s$/.test(r.Products) ? "chg" : "ren", note: /\s$/.test(r.Products) ? "TRIM removed the trailing space" : "TRIM(CAST(… AS VARCHAR(255)))" },
+    { k: "coordinates", old: "COORDINATE", v: "'" + esc(r.COORDINATE) + "'", st: "ren" },
+    { k: "average_price", old: "VALUE " + (r.VALUE === "" ? "NULL" : esc(r.VALUE)), v: c == null ? '<span class="null">NULL</span>' : (c / 100).toFixed(2), st: c == null ? "null" : "chg", note: "TRY_CAST(… AS NUMBER(6,2))" },
+  ];
+  if (full) ["UOM", "UOM_ID", "SCALAR_FACTOR", "SCALAR_ID", "VECTOR", "STATUS", "SYMBOL", "TERMINATED", "DECIMALS"].forEach((k) => rows.push({ k, v: r[k] === "" ? '<span class="null">NULL</span>' : esc(r[k]), st: "drop" }));
+  return rows;
+}
+function goldBase() {
+  const c = priceAt(st.g, st.p, st.m);
+  return [
+    { k: "reference_date", v: MONTHS[st.m] + "-01", st: "same" },
+    { k: "geography_location", v: "'" + esc(GEOS[st.g]) + "'", st: "same" },
+    { k: "products", v: showStr(PRODS[st.p].trim()), st: "same" },
+    { k: "average_price", v: c == null ? '<span class="null">NULL</span>' : (c / 100).toFixed(2), st: c == null ? "null" : "same" },
+  ];
+}
+const dropDG = [{ k: "dguid", v: "", st: "drop" }, { k: "coordinates", v: "", st: "drop" }];
+function head(i, title, meta) {
+  return `<header class="s-head"><p class="kicker">Step ${pad2(i)} · ${esc(STEPS[i].short)}</p><h2>${title}</h2><p class="meta">${meta}</p></header>`;
+}
+const fileLink = (p) => `<a href="${GH + p}">${p}</a>`;
+function cpiCard(stage) {
+  const i = D.cpiMonths.indexOf(MONTHS[st.m]);
+  if (i < 0) return "";
+  const [dguid, vec, coord, uom, , , vals] = D.cpi.Food;
+  const v = vals.split(",")[i];
+  const col = stage >= 6 ? `cpi_index = <b>${v === "" ? "NULL" : (+v).toFixed(2)}</b>, products = 'Food', reference_date = ${MONTHS[st.m]}-01` : `"Products and product groups" = 'Food', VALUE = <b>${esc(v)}</b>, UOM = '${esc(uom)}'`;
+  return `<div class="callout info"><b>Meanwhile, in the CPI lane</b><span>The matching CPI row (Canada, ${mShort(st.m)}) goes through the same step: ${col}.</span></div>`;
+}
+
+function stepContent(i) {
+  const r = rawRow(); const y = yearOf(); const Y = D.years[y];
+  const s = ser(st.g, st.p), k = idx(s, st.m), c = s.c[k];
+  const fname = `average-price_${y}.csv`, cname = `provience-price_${y}.csv`;
+  const key = `landing/average-price/year=${y}/${fname}`;
+  const mb = (b) => (b / 1e6).toFixed(2) + " MB";
+  const prod = esc(PRODS[st.p].trim()), geo = esc(GEOS[st.g]);
+  let L = "", Rt = "";
+  switch (i) {
+  case 0: {
+    const line = RAWCOLS.map((k) => csvField(r[k])).join(",");
+    L = head(0, "The raw StatCan download", "Statistics Canada table 18-10-0245-01 · datasets/avg/18100245.csv (git-ignored)") +
+      `<div class="what"><p>The row starts life as one line in a 19.0 MB CSV that stacks every month, region and product together. Nothing has touched it yet: the price is text, the month is the string <code>${esc(r.REF_DATE)}</code>, and nine of the fifteen columns are StatCan metadata.</p>
+      ${r.VALUE === "" ? `<div class="callout warn"><b>This row has no price.</b><span>StatCan left <code>VALUE</code> empty and set <code>STATUS</code> to <code>..</code>, which means "not available for this reference period". The row still exists and will travel the whole pipeline.</span></div>` : ""}
+      ${/\s$/.test(r.Products) ? `<div class="callout warn"><b>The product name ends in a space.</b><span>StatCan publishes <code>"${esc(r.Products)}"</code> with a trailing space. Watch for it in silver.</span></div>` : ""}</div>` +
+      codeBlock("start/split_data.py", "»df_average = pd.read_csv('.../datasets/avg/18100245.csv')\n»df_provience = pd.read_csv('.../datasets/provience-wise/18100004.csv')", "start/split_data.py") + cpiCard(0);
+    Rt = where("Where it lives", "datasets/avg/18100245.csv", `<span>file <b>19.0 MB</b></span><span>rows <b>${fmtInt(D.rawRows)}</b></span><span>columns <b>15</b></span>`) +
+      logBlock(`<span class="dim">$ grep '^${esc(r.REF_DATE)},.*,${esc(r.VECTOR)},' datasets/avg/18100245.csv</span>\n${esc(line)}`, "The line in the file") + rowTable(rawRows(0), "Your row, parsed");
+    break;
+  }
+  case 1: {
+    L = head(1, "Split the raw file by year", `pandas · ${fileLink("start/split_data.py")}`) +
+      `<div class="what"><p>The script loops over 2017 to 2026 and keeps rows whose <code>REF_DATE</code> starts with the year. For your row the test is <code>'${esc(r.REF_DATE)}'.startswith('${y}')</code>, which is <b>True</b>, so it is copied into <code>${fname}</code> with ${fmtInt(Y.a[0]) } other ${y} rows.</p>
+      <p>The row's content does not change at all. Only its file does. The same loop trims the CPI table, which goes back to 1914, to the same ten years.</p></div>` +
+      codeBlock("start/split_data.py", `for year in range(start_year, end_year + 1):\n»    avg_by_year[year] = df_average[\n»        df_average['REF_DATE'].str.startswith(str(year))\n    ].copy()\n    ...\n»        avg_by_year[year].to_csv(f"{avg_path}/average-price_{year}.csv", index = False)`, "start/split_data.py") + cpiCard(1);
+    const yrs = Object.entries(D.years).map(([yy, v]) => `${yy === y ? "<b style='color:var(--tag)'>" : ""}Year: ${yy}\nAverage Shape:  (${v.a[0]}, 15)\nCPI Shape:  (${v.c[0]}, 15)${yy === y ? "</b>" : ""}`).join("\n\n");
+    const tA = Object.values(D.years).reduce((a, v) => a + v.a[0], 0), tC = Object.values(D.years).reduce((a, v) => a + v.c[0], 0);
+    Rt = where("Where it lives now", `data/loading/average-price/${fname}`, `<span>file <b>${mb(Y.a[1])}</b></span><span>rows in file <b>${fmtInt(Y.a[0])}</b></span><span>files written <b>20</b></span>`) +
+      logBlock(`<span class="dim">$ python start/split_data.py</span>\n${yrs}\n<span class="ok">Avg Total Count: ${tA}\nOriginal Avg Count: ${D.rawRows}</span>\nCPI Total Count: ${tC}\nOriginal CPI Count: ${D.cpiRaw}\n...\nSaved data for ${y}`, "Console · python start/split_data.py") +
+      rowTable(rawRows(1), "Your row in the yearly file");
+    break;
+  }
+  case 2: {
+    L = head(2, "Upload to the S3 landing zone", `boto3 · IAM user · ${fileLink("src/ingestion/upload_to_s3.py")}`) +
+      `<div class="what"><p>With <code>YEAR = ${y}</code>, the script builds a Hive-style key from the dataset name and the year, checks the local file exists, and uploads it. The IAM user it runs as can only <code>s3:PutObject</code> under <code>landing/</code>.</p><p>Still no change to the row. It is now a line inside an S3 object.</p></div>` +
+      codeBlock("src/ingestion/upload_to_s3.py", `BUCKET_NAME = "stats-canada-grocery-data"\n»YEAR = ${y}\n\n»s3_key = f"landing/{dataset_name}/year={year}/{local_file.name}"\ns3_client.upload_file(Filename=str(local_file), Bucket=BUCKET_NAME, Key=s3_key)`, "src/ingestion/upload_to_s3.py") + cpiCard(2);
+    Rt = where("Where it lives now", `s3://stats-canada-grocery-data/${key}`, `<span>object <b>${mb(Y.a[1])}</b></span><span>objects under landing/ <b>20</b></span>`) +
+      logBlock(`<span class="dim">$ python src/ingestion/upload_to_s3.py</span>\nUploaded: ${fname}\nS3 location: s3://stats-canada-grocery-data/${key}\nUploaded: ${cname}\nS3 location: s3://stats-canada-grocery-data/landing/cpi/year=${y}/${cname}`, "Console · YEAR = " + y) +
+      rowTable(rawRows(2), "Your row inside the object");
+    break;
+  }
+  case 3: {
+    const list = Object.entries(D.years).map(([yy, v]) => `${yy === y ? "<b style='color:var(--tag)'>" : ""}s3://stats-canada-grocery-data/landing/average-price/year=${yy}/average-price_${yy}.csv  ${String(v.a[1]).padStart(8)}${yy === y ? "</b>" : ""}`).join("\n");
+    L = head(3, "Point Snowflake at the bucket", `storage integration · stage · INFER_SCHEMA · ${fileLink("snowflake/load_average_price.sql")}`) +
+      `<div class="what"><p>The stage <code>STATSCAN_S3_STAGE</code> points at <code>landing/</code> and authenticates through the storage integration <code>STATSCAN_S3_INT</code>, which assumes an IAM role. There are no AWS keys in the SQL.</p>
+      <p><code>INFER_SCHEMA</code> reads the CSV header of the staged files and creates <code>SOURCE_AVERAGE_PRICE</code> with the same 15 column names. At this moment the table exists but is empty. Your row is readable through the stage, not yet loaded.</p></div>` +
+      codeBlock("snowflake/load_average_price.sql", `»CREATE STAGE IF NOT EXISTS STATSCAN_S3_STAGE\n  URL = 's3://stats-canada-grocery-data/landing/'\n»  STORAGE_INTEGRATION = STATSCAN_S3_INT;\n\nCREATE FILE FORMAT IF NOT EXISTS STATSCAN_CSV\n  TYPE = CSV  PARSE_HEADER = TRUE  FIELD_OPTIONALLY_ENCLOSED_BY = '"';\n\n»CREATE TABLE IF NOT EXISTS SOURCE_AVERAGE_PRICE\n  USING TEMPLATE (SELECT ARRAY_AGG(OBJECT_CONSTRUCT(*))\n»    FROM TABLE(INFER_SCHEMA(LOCATION => '@STATSCAN_S3_STAGE/average-price/',\n                            FILE_FORMAT => 'STATSCAN_CSV')));`, "snowflake/load_average_price.sql") + cpiCard(3);
+    Rt = where("Where it lives now", `@STATSCAN_S3_STAGE/average-price/year=${y}/${fname}`, `<span>SOURCE_AVERAGE_PRICE rows <b>0</b></span><span>columns from header <b>15</b></span>`) +
+      logBlock(`<span class="dim">LIST @STATSCAN_S3_STAGE/average-price/;</span>\n${list}`, "Snowflake · LIST (name, size in bytes)") +
+      rowTable(rawRows(3), "Your row, read through the stage");
+    break;
+  }
+  case 4: {
+    const rows = Object.entries(D.years).map(([yy, v]) => `${yy === y ? "<b style='color:var(--tag)'>" : ""}${("average-price/year=" + yy + "/" + "average-price_" + yy + ".csv").padEnd(48)} LOADED  ${String(v.a[0]).padStart(6)}  ${String(v.a[0]).padStart(6)}${yy === y ? "</b>" : ""}`).join("\n");
+    const again = !!st.copyAgain;
+    L = head(4, "Load with COPY INTO", `MATCH_BY_COLUMN_NAME · ${fileLink("snowflake/load_average_price.sql")}`) +
+      `<div class="what"><p><code>COPY INTO</code> reads every file under <code>average-price/</code> and matches CSV columns to table columns by name. This is the first moment your row is a real table row: ${fmtInt(Y.a[0])} rows arrive from <code>${fname}</code>, ${fmtInt(D.rawRows)} in total.</p>
+      <p>Empty CSV fields become SQL <code>NULL</code> here, because Snowflake's CSV default is <code>EMPTY_FIELD_AS_NULL = TRUE</code>. ${r.VALUE === "" ? "For your row that includes <b>VALUE</b>: the price is now NULL." : "For your row that is STATUS, SYMBOL and TERMINATED."}</p>
+      <p>Snowflake also remembers which files it has loaded. Running the same statement again loads nothing.</p></div>` +
+      codeBlock("snowflake/load_average_price.sql", `»COPY INTO SOURCE_AVERAGE_PRICE\n»  FROM @STATSCAN_S3_STAGE/average-price/\n  FILE_FORMAT = (FORMAT_NAME = 'STATSCAN_CSV')\n»  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;`, "snowflake/load_average_price.sql") +
+      `<div><button class="btn" type="button" id="copyAgain">${again ? "Show the first run" : "Run COPY INTO again"}</button></div>` + cpiCard(4);
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.SOURCE.SOURCE_AVERAGE_PRICE", `<span>table rows <b>${fmtInt(D.rawRows)}</b></span><span>files loaded <b>10</b></span>`) +
+      logBlock(again ? `<span class="dim">COPY INTO SOURCE_AVERAGE_PRICE ...;  -- second run</span>\nstatus\nCopy executed with 0 files processed.` : `<span class="dim">COPY INTO SOURCE_AVERAGE_PRICE ...;</span>\n${"file".padEnd(48)} status  parsed  loaded\n${rows}`, again ? "Snowflake · re-run" : "Snowflake · COPY INTO result") +
+      rowTable(rawRows(4), "Your row in SOURCE_AVERAGE_PRICE");
+    break;
+  }
+  case 5: {
+    L = head(5, "Bronze: an untouched copy", `dbt Core · ${fileLink("statscan_dbt/models/bronze/bronze_average_price.sql")}`) +
+      `<div class="what"><p>The bronze model is one <code>SELECT *</code>, materialized as a table in the <code>BRONZE</code> schema. Every column and value is the same as in SOURCE. That is the point: bronze is the one place dbt reads the raw source, so everything downstream depends on <code>ref()</code>, not on a raw table name.</p>
+      <p>The custom <code>generate_schema_name</code> macro is why the schema is exactly <code>BRONZE</code> and not dbt's default <code>PUBLIC_BRONZE</code>.</p></div>` +
+      codeBlock("models/bronze/bronze_average_price.sql", `SELECT\n*\n»FROM  {{ source('statscan_analytics_source', 'source_average_price') }}`, "statscan_dbt/models/bronze/bronze_average_price.sql") +
+      codeBlock("macros/generate_schema.sql", `{%- if custom_schema_name is none -%}\n    {{ default_schema }}\n{%- else -%}\n»    {{ custom_schema_name | trim }}\n{%- endif -%}`, "statscan_dbt/macros/generate_schema.sql") + cpiCard(5);
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.BRONZE.BRONZE_AVERAGE_PRICE", `<span>rows <b>${fmtInt(D.rawRows)}</b></span><span>columns changed <b>0</b></span>`) +
+      logBlock(`<span class="dim">$ dbt run</span>\n1 of 9 START sql table model BRONZE.bronze_average_price ....... [RUN]\n<span class="ok">1 of 9 OK created sql table model BRONZE.bronze_average_price .. [SUCCESS 1]</span>\n2 of 9 START sql table model BRONZE.bronze_cpi ................. [RUN]\n<span class="ok">2 of 9 OK created sql table model BRONZE.bronze_cpi ............ [SUCCESS 1]</span>`, "dbt run") +
+      rowTable(rawRows(5), "Your row in bronze");
+    break;
+  }
+  case 6: {
+    L = head(6, "Silver: cleaned and typed", `dbt Core · ${fileLink("statscan_dbt/models/silver/silver_average_price.sql")}`) +
+      `<div class="what"><p>This is where the row changes shape. Fifteen text-like columns become six typed ones. The month string becomes a real <code>DATE</code>, columns get readable names, product names are trimmed, and the price becomes <code>NUMBER(6,2)</code>. The other nine columns are dropped.</p>
+      <p><code>TRY_CAST</code> and <code>TRY_TO_DATE</code> return NULL instead of failing the run when a value cannot be converted. ${c == null ? "Your row's price was already NULL, so it stays NULL and the row is kept." : ""}</p>
+      ${/\s$/.test(PRODS[st.p]) ? `<div class="callout info"><b>The trailing space is removed.</b><span>StatCan publishes ${PRODS.filter((x) => /\s$/.test(x)).length} product names ending in a space. <code>TRIM()</code> strips it here, so a filter or a Power BI slicer on <code>'${esc(PRODS[st.p].trim())}'</code> matches this row.</span></div>` : ""}</div>` +
+      codeBlock("models/silver/silver_average_price.sql", `SELECT\n»    TRY_TO_DATE(REF_DATE || '-01', 'YYYY-MM-DD') AS reference_date,\n    CAST(GEO AS VARCHAR(255)) AS geography_location,\n    CAST(DGUID AS VARCHAR(255)) AS dguid,\n»    TRIM(CAST("Products" AS VARCHAR(255))) AS products,\n    CAST(COORDINATE AS VARCHAR(255)) AS coordinates,\n»    TRY_CAST(VALUE::VARCHAR AS NUMBER(6,2)) AS average_price\nFROM\n    {{ ref('bronze_average_price') }}`, "statscan_dbt/models/silver/silver_average_price.sql") + cpiCard(6);
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.SILVER.SILVER_AVERAGE_PRICE", `<span>rows <b>${fmtInt(D.rawRows)}</b></span><span>columns <b>15 → 6</b></span>`) +
+      logBlock(`3 of 9 START sql table model SILVER.silver_average_price ....... [RUN]\n<span class="ok">3 of 9 OK created sql table model SILVER.silver_average_price .. [SUCCESS 1]</span>\n4 of 9 START sql table model SILVER.silver_cpi ................. [RUN]\n<span class="ok">4 of 9 OK created sql table model SILVER.silver_cpi ............ [SUCCESS 1]</span>`, "dbt run") +
+      rowTable(silverRows(true), "Your row in silver");
+    break;
+  }
+  case 7:
+  case 8: {
+    const yoy = i === 8, n = yoy ? 12 : 1, rc = lagCalc(s, k, n);
+    const prevName = yoy ? "prev_year_price" : "prev_month_price", pctName = yoy ? "precentage_change" : "pct_change";
+    const model = yoy ? "price_change_over_years" : "price_change_over_months";
+    let why = "";
+    if (rc.prevK < 0) why = `<div class="callout warn"><b>${prevName} is NULL.</b><span>${yoy ? `The series for ${geo} has only ${k + 1} row${k ? "s" : ""} up to this month. <code>LAG(average_price, 12)</code> needs a row 12 positions back, so it returns NULL.${st.g >= 11 ? " StatCan only started publishing the territories in September 2025, so no territory row has a year-over-year value yet." : ""}` : `This is the first row of the series, so <code>LAG</code> has nothing before it. NULL flows into price_change and ${pctName}.`}</span></div>`;
+    else if (rc.cur == null || rc.prev == null) why = `<div class="callout warn"><b>A NULL price makes the change NULL.</b><span>${rc.cur == null ? "This row's" : "The earlier row's"} average_price is NULL, and any arithmetic with NULL is NULL.</span></div>`;
+    L = head(i, yoy ? "Gold: change from last year" : "Gold: change from last month", `dbt Core · window functions · ${fileLink("statscan_dbt/models/gold/" + model + ".sql")}`) +
+      `<div class="what"><p><code>LAG</code> looks ${n} row${n > 1 ? "s" : ""} back inside a partition of one region and one product, ordered by date. For your row that is ${rc.prevK >= 0 ? `<b>${mShort(s.start + rc.prevK)}</b>, priced at <b>${money(rc.prev)}</b>` : "<b>no row</b>"}.</p>
+      <p>Because LAG counts rows, not months, it is only correct if no month is missing in a series. I checked all ${fmtInt(Object.keys(D.series).length)} series in the data: none has a gap, so row offsets match calendar months.</p>${why}</div>` +
+      seriesChart(yoy ? "yoy" : "mom") +
+      codeBlock(`models/gold/${model}.sql`, `»LAG(average_price${yoy ? ", 12" : ""}) OVER (PARTITION BY geography_location, products\n»                    ORDER BY reference_date) AS ${prevName}\n...\naverage_price - ${prevName} AS price_change,\n»ROUND((average_price - ${prevName}) / (NULLIF(${prevName}, 0)) * 100, 2) AS ${pctName}`, "statscan_dbt/models/gold/" + model + ".sql");
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.GOLD." + model.toUpperCase(), `<span>rows <b>${fmtInt(goldTotals)}</b></span><span>one per silver row</span>`) +
+      logBlock(`${yoy ? 6 : 5} of 9 START sql table model GOLD.${model} ..... [RUN]\n<span class="ok">${yoy ? 6 : 5} of 9 OK created sql table model GOLD.${model} [SUCCESS 1]</span>`, "dbt run") +
+      rowTable([...goldBase(), ...dropDG,
+        { k: prevName, v: money(rc.prev).replace("$", ""), st: rc.prev == null ? "null" : "add", note: rc.prevK >= 0 ? "from " + mShort(s.start + rc.prevK) : "no earlier row" },
+        { k: "price_change", v: signed(rc.change), st: rc.change == null ? "null" : "add" },
+        { k: pctName, v: pctS(rc.pct), st: rc.pct == null ? "null" : "add" }], "Your row in gold");
+    break;
+  }
+  case 9: {
+    const r3 = rollCalc(s, k, 3), r12 = rollCalc(s, k, 12);
+    const note = (r, n) => `${r.cnt} of ${n} rows with a price${r.cnt === n ? "" : ", so NULL"}`;
+    L = head(9, "Gold: rolling averages", `dbt Core · window frames · ${fileLink("statscan_dbt/models/gold/rolling_average_price.sql")}`) +
+      `<div class="what"><p>Two window frames slide over the series: the current row plus the 2 before it, and the current row plus the 11 before it. <code>AVG</code> skips NULLs, so the model also counts the prices in each window and only reports the average when the window is full. That avoids an "average" built from one or two months.</p>
+      <p>For ${mShort(st.m)} the 3-month window holds ${note(r3, 3)}. The 12-month window holds ${note(r12, 12)}.${r12.cnt < 12 && r12.avg != null ? ` A plain AVG would have shown ${r12.avg.toFixed(2)} here.` : ""}</p></div>` +
+      seriesChart("roll") +
+      codeBlock("models/gold/rolling_average_price.sql", `AVG(average_price) OVER (PARTITION BY geography_location, products ORDER BY reference_date\n»                         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS avg_3_month,\nCOUNT(average_price) OVER (... ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS months_in_3_window,\n...\n»CASE WHEN months_in_3_window = 3 THEN ROUND(avg_3_month, 2) END AS moving_avg_3_month,\n»CASE WHEN months_in_12_window = 12 THEN ROUND(avg_12_month, 2) END AS moving_avg_12_month`, "statscan_dbt/models/gold/rolling_average_price.sql") +
+      `<div class="callout info"><b>Not on the report yet.</b><span>This table is built on every <code>dbt run</code>, but the Power BI page does not use it.</span></div>`;
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.GOLD.ROLLING_AVERAGE_PRICE", `<span>rows <b>${fmtInt(goldTotals)}</b></span>`) +
+      logBlock(`7 of 9 START sql table model GOLD.rolling_average_price ....... [RUN]\n<span class="ok">7 of 9 OK created sql table model GOLD.rolling_average_price .. [SUCCESS 1]</span>`, "dbt run") +
+      rowTable([...goldBase(), ...dropDG,
+        { k: "moving_avg_3_month", v: dollars(r3.out), st: r3.out == null ? "null" : "add", note: r3.cnt + " of 3 in window" },
+        { k: "moving_avg_12_month", v: dollars(r12.out), st: r12.out == null ? "null" : "add", note: r12.cnt + " of 12 in window" }], "Your row in gold");
+    break;
+  }
+  case 10: {
+    const isCan = st.g === CAN, isLatest = st.m === LATEST;
+    const mine = TOP.all.find((x) => x.p === st.p);
+    let verdict;
+    if (!isCan || !isLatest) verdict = `<div class="callout bad"><b>Your row is filtered out.</b><span>The model keeps only <code>reference_date = ${MONTHS[LATEST]}-01</code> and <code>geography_location = 'Canada'</code>. Your row is ${!isLatest ? `<b>${mShort(st.m)}</b>` : ""}${!isLatest && !isCan ? " in " : ""}${!isCan ? `<b>${geo}</b>` : ""}. ${mine ? `The Canada, ${mShort(LATEST)} row for this product ranks <b>#${mine.rank}</b> of ${TOP.all.length}.` : ""}</span></div>`;
+    else if (!mine) verdict = `<div class="callout bad"><b>Your row is filtered out.</b><span>Its precentage_change is NULL, and the model drops NULLs before ranking.</span></div>`;
+    else verdict = mine.rank <= 10 ? `<div class="callout info"><b>Your row makes the table at rank ${mine.rank}.</b><span>It is one of ${TOP.top.length} rows kept.</span></div>` : `<div class="callout bad"><b>Your row ranks ${mine.rank} of ${TOP.all.length}.</b><span>Only ranks 1 to 10 are kept, so it is dropped.</span></div>`;
+    const tbl = TOP.top.map((x) => `<tr class="${x.p === st.p ? "mine" : ""}"><td class="num">${x.rank}</td><td>${esc(x.name)}</td><td class="num">${money(x.prev)}</td><td class="num">${money(x.cur)}</td><td class="num">${pctS(x.pct)}</td></tr>`).join("");
+    L = head(10, "Gold: the 10 biggest risers", `dbt Core · DENSE_RANK · ${fileLink("statscan_dbt/models/gold/biggest_price_change_for_ten_products.sql")}`) +
+      `<div class="what"><p>This model reads the year-over-year table, not silver. It keeps the latest month and Canada only, drops rows with no percentage, ranks the rest by <code>precentage_change</code> with <code>DENSE_RANK</code>, and keeps ranks 1 to 10. ${TOP.all.length} products qualify for ${mShort(LATEST)}.</p>${verdict}</div>` +
+      codeBlock("models/gold/biggest_price_change_for_ten_products.sql", `»DENSE_RANK() OVER (ORDER BY precentage_change DESC) AS dns_rank\nFROM {{ ref('price_change_over_years') }}\nWHERE\n»    reference_date = (SELECT max_date FROM latest_date)\n»    AND geography_location = 'Canada'\n    AND precentage_change IS NOT NULL\n...\n»WHERE dns_rank <= 10`, "statscan_dbt/models/gold/biggest_price_change_for_ten_products.sql");
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.GOLD.BIGGEST_PRICE_CHANGE_FOR_TEN_PRODUCTS", `<span>rows <b>${TOP.top.length}</b></span><span>from <b>${fmtInt(goldTotals)}</b> year-over-year rows</span>`) +
+      `<div class="tbl"><h3 style="margin-bottom:6px">The table, ${mLabel(LATEST)}, Canada</h3><table><thead><tr><th class="num">Rank</th><th>Product</th><th class="num">Year before</th><th class="num">Now</th><th class="num">Change</th></tr></thead><tbody>${tbl}</tbody></table></div>`;
+    break;
+  }
+  case 11: {
+    const rows = mostExp(st.p);
+    const nulls = rows.filter((x) => x.v == null);
+    const mineR = rows.find((x) => x.g === st.g);
+    let verdict;
+    if (st.g === CAN) verdict = `<div class="callout bad"><b>Your row is filtered out.</b><span>The model excludes <code>geography_location = 'Canada'</code>. It ranks the regions instead.</span></div>`;
+    else if (mineR && mineR.v == null && st.m === LATEST) verdict = `<div class="callout bad"><b>Your row is filtered out.</b><span>It has no price, and the model drops rows where <code>average_price IS NULL</code> before ranking.</span></div>`;
+    else if (st.m !== LATEST) verdict = `<div class="callout bad"><b>Your row is filtered out.</b><span>Only <code>${MONTHS[LATEST]}-01</code> is ranked. ${mineR && mineR.v == null ? `In that month ${geo} has no price for this product, so it is not ranked at all.` : `In that month ${geo} ranks <b>#${mineR ? mineR.rank : "–"}</b> for this product.`}</span></div>`;
+    else verdict = mineR && mineR.rank < 4 ? `<div class="callout info"><b>Your row is kept at rank ${mineR.rank}.</b></div>` : `<div class="callout bad"><b>Your row ranks ${mineR ? mineR.rank : "–"}.</b><span>Only ranks 1 to 3 are kept.</span></div>`;
+    const nullNote = nulls.length ? `<div class="callout info"><b>Missing prices are filtered out first.</b><span>${nulls.map((x) => esc(x.name)).join(" and ")} ${nulls.length > 1 ? "have" : "has"} no price for ${mShort(LATEST)}. Snowflake sorts NULL above every number in a descending sort, so before <code>AND average_price IS NOT NULL</code> was added, ${nulls.length > 1 ? "these rows" : "this row"} ranked #1 as the most expensive.</span></div>` : "";
+    const max = Math.max(...rows.map((x) => x.v || 0));
+    const bars = rows.map((x) => `<div class="bar ${x.g === st.g ? "me" : ""} ${x.rank < 4 ? "top" : ""}"><span class="nm" title="${esc(x.name)}">${x.rank < 4 ? "#" + x.rank + " " : ""}${esc(x.name.split(",")[0])}</span><span class="tr">${x.v == null ? `<span class="null" style="font-size:.78rem">NULL · filtered out</span>` : `<span class="fl" style="left:0;width:${(x.v / max) * 100}%"></span>`}</span><span class="vl">${x.v == null ? "NULL" : "$" + (x.v / 100).toFixed(2)}</span></div>`).join("");
+    L = head(11, "Gold: the 3 most expensive regions", `dbt Core · DENSE_RANK · ${fileLink("statscan_dbt/models/gold/most_expensive_provience.sql")}`) +
+      `<div class="what"><p>For each product, this ranks every region except Canada by price in the latest month and keeps the top 3. Regions with no price that month are left out. The region filter only removes Canada, so Whitehorse and Yellowknife compete with the provinces when they publish the product.</p>${verdict}${nullNote}</div>` +
+      codeBlock("models/gold/most_expensive_provience.sql", `»DENSE_RANK() OVER (PARTITION BY products ORDER BY average_price DESC) AS dns_rank\nFROM {{ ref('silver_average_price') }}\nWHERE\n    reference_date = (SELECT max_date FROM latest_date)\n»    AND geography_location <> 'Canada'\n»    AND average_price IS NOT NULL\n...\n»WHERE dns_rank < 4`, "statscan_dbt/models/gold/most_expensive_provience.sql") +
+      `<div class="callout info"><b>Not on the report yet.</b><span>Built on every run, not used by the Power BI page.</span></div>`;
+    Rt = where("Where it lives now", "STATSCAN_ANALYTICS.GOLD.MOST_EXPENSIVE_PROVIENCE", `<span>rows <b>${fmtInt(mostExpCount)}</b></span><span>for <b>${PRODS.length}</b> products</span>`) +
+      `<div style="display:grid;gap:8px"><h3>${prod}, ${mLabel(LATEST)}, ranked as the model ranks it</h3><div class="bars">${bars}</div></div>`;
+    break;
+  }
+  case 12: {
+    const mm = lagCalc(s, k, 1);
+    const yrows = GEOS.map((name, g) => { const ss = ser(g, st.p); const kk = idx(ss, st.m); return kk < 0 ? null : { g, name, pct: lagCalc(ss, kk, 12).pct }; }).filter(Boolean);
+    const withV = yrows.filter((x) => x.pct != null).sort((a, b) => b.pct - a.pct), noV = yrows.filter((x) => x.pct == null);
+    const ext = Math.max(1, ...withV.map((x) => Math.abs(x.pct)));
+    const anyNeg = withV.some((x) => x.pct < 0);
+    const z = anyNeg ? 50 : 0, sc = anyNeg ? 50 : 100;
+    const bars = withV.map((x) => { const w = (Math.abs(x.pct) / ext) * sc; const left = x.pct >= 0 ? z : z - w; return `<div class="bar ${x.g === st.g ? "me" : ""}"><span class="nm" title="${esc(x.name)}">${esc(x.name.split(",")[0])}</span><span class="tr"><span class="fl" style="left:${left}%;width:${w}%"></span>${anyNeg ? `<span class="zero" style="left:${z}%"></span>` : ""}</span><span class="vl">${(x.pct > 0 ? "+" : "") + x.pct.toFixed(2)}%</span></div>`; }).join("") +
+      (noV.length ? `<p class="meta">No value: ${noV.map((x) => esc(x.name.split(",")[0])).join(", ")}</p>` : "");
+    const tbl = TOP.top.map((x) => `<tr class="${x.p === st.p && st.g === CAN ? "mine" : ""}"><td>${esc(x.name)}</td><td class="num">${money(x.prev)}</td><td class="num">${money(x.cur)}</td><td class="num">${signed(x.change)}</td></tr>`).join("");
+    const cls = (v) => (v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "");
+    L = head(12, "Power BI: what a reader sees", "Power BI Desktop · power_bi/power_bi_dashboard.pbix") +
+      `<div class="what"><p>The report connects to the <code>GOLD</code> schema and reads three tables: <code>PRICE_CHANGE_OVER_MONTHS</code>, <code>PRICE_CHANGE_OVER_YEARS</code> and <code>BIGGEST_PRICE_CHANGE_FOR_TEN_PRODUCTS</code>. Product, date and province slicers filter the visuals through small lookup tables.</p>
+      <p>The report panel rebuilds page 1 from the same gold rows, with the slicers set to your selection. Change the product, region or month above and the visuals follow, as the slicers would.</p></div>` +
+      `<div class="callout info"><b>Where each visual comes from</b><span>Cards: price_change_over_months. Bar chart: price_change_over_years, all regions. Table: biggest_price_change_for_ten_products, which ignores the slicers because it is fixed to Canada and the latest month.</span></div>`;
+    Rt = `<div class="pbi" role="img" aria-label="Recreated Power BI report page"><div class="meta">Page 1 · Product: ${prod} · Date: ${mShort(st.m)} · Province: ${geo}</div>
+      <div class="cards"><div class="card"><span class="cl">Average price</span><span class="cv">${mm.cur == null ? "(Blank)" : "$" + (mm.cur / 100).toFixed(2)}</span></div>
+      <div class="card"><span class="cl">Previous month price</span><span class="cv">${mm.prev == null ? "(Blank)" : "$" + (mm.prev / 100).toFixed(2)}</span></div>
+      <div class="card"><span class="cl">Price change</span><span class="cv ${cls(mm.change)}">${mm.change == null ? "(Blank)" : (mm.change > 0 ? "+" : "") + "$" + (mm.change / 100).toFixed(2)}</span></div></div>
+      <div style="display:grid;gap:6px"><h3>Year-over-year % change by province · ${mShort(st.m)}</h3><div class="bars">${bars || '<p class="meta">No region has a value 12 months back for this month.</p>'}</div></div>
+      <div class="tbl"><h3 style="margin-bottom:6px">Top 10 price increases · Canada · ${mShort(LATEST)}</h3><table><thead><tr><th>Product</th><th class="num">Year before</th><th class="num">Now</th><th class="num">Change</th></tr></thead><tbody>${tbl}</tbody></table></div></div>`;
+    break;
+  }
+  }
+  return [L, Rt];
+}
+
+/* ---------- stat card ---------- */
+function statFor(i) {
+  const y = yearOf(), Y = D.years[y];
+  const s = ser(st.g, st.p), k = idx(s, st.m);
+  const pctBig = (v) => (v == null ? "NULL" : (v > 0 ? "+" : "") + v.toFixed(1) + "%");
+  switch (i) {
+    case 0: return ["1.3M", "raw rows across the two Statistics Canada tables. Your row is one of 141,432 price rows."];
+    case 1: return [fmtInt(Y.a[0]), `rows in average-price_${y}.csv, one of 20 yearly files the split writes`];
+    case 2: return ["20", "objects under s3://stats-canada-grocery-data/landing/, partitioned by year"];
+    case 3: return ["15", "columns Snowflake infers from the CSV header. The table is still empty."];
+    case 4: return st.copyAgain ? ["0", "files processed when COPY INTO runs a second time"] : ["141K", "rows loaded into SOURCE_AVERAGE_PRICE from 10 files"];
+    case 5: return ["0", "columns changed between SOURCE and BRONZE"];
+    case 6: return ["15→6", "columns after silver casts, renames and drops the metadata"];
+    case 7: return [pctBig(lagCalc(s, k, 1).pct), `change from last month for your row, ${mShort(st.m)}`];
+    case 8: return [pctBig(lagCalc(s, k, 12).pct), `change from the same month last year, ${mShort(st.m)}`];
+    case 9: { const r = rollCalc(s, k, 3).out; return [r == null ? "NULL" : "$" + r.toFixed(2), "3-month moving average for your row"]; }
+    case 10: { const m = TOP.all.find((x) => x.p === st.p); const kept = st.g === CAN && st.m === LATEST && m && m.rank <= 10; return [kept ? "#" + m.rank : "OUT", kept ? `of the 10 biggest risers in Canada, ${mShort(LATEST)}` : `your row is not in the top-10 table${m ? `; this product ranks #${m.rank} in Canada` : ""}`]; }
+    case 11: { const r = mostExp(st.p).find((x) => x.g === st.g); const kept = st.g !== CAN && st.m === LATEST && r && r.rank < 4; return [kept ? "#" + r.rank : "OUT", kept ? `most expensive region for this product, ${mShort(LATEST)}` : "your row is not in the top-3 regions table"]; }
+    case 12: return ["3", "gold tables feed the report: two change tables and the top-10 list"];
+  }
+}
+
+/* ---------- render ---------- */
+function render() {
+  snap(); syncControls(); renderTag(); updateDiagram();
+  const [l, r] = stepContent(st.step);
+  const tmp = document.createElement("div"); tmp.innerHTML = l;
+  const story = $("#storyText"); story.innerHTML = "";
+  const hd = tmp.querySelector(".s-head"), wt = tmp.querySelector(".what");
+  if (hd) story.appendChild(hd);
+  if (wt) story.appendChild(wt);
+  $("#left").innerHTML = tmp.innerHTML.trim();
+  $("#right").innerHTML = r;
+  const [sv, sl] = statFor(st.step);
+  $("#stat").innerHTML = `<span class="stat-v">${esc(sv)}</span><span class="stat-l">${esc(sl)}</span>`;
+  const ca = $("#copyAgain"); if (ca) ca.addEventListener("click", () => { st.copyAgain = !st.copyAgain; render(); });
+  $("#prev").disabled = st.step === 0; $("#next").disabled = st.step === STEPS.length - 1;
+}
+function go(i) { st.step = Math.max(0, Math.min(STEPS.length - 1, i)); if (i !== 4) st.copyAgain = false; render(); }
+let timer = null;
+function stop() { st.playing = false; clearInterval(timer); $("#play").textContent = "Play"; }
+$("#play").addEventListener("click", () => {
+  if (st.playing) return stop();
+  st.playing = true; $("#play").textContent = "Pause";
+  if (st.step === STEPS.length - 1) go(0);
+  timer = setInterval(() => { if (st.step >= STEPS.length - 1) return stop(); go(st.step + 1); }, 3200);
+});
+$("#prev").addEventListener("click", () => { stop(); go(st.step - 1); });
+$("#next").addEventListener("click", () => { stop(); go(st.step + 1); });
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("select, input, textarea")) return;
+  if (e.key === "ArrowRight") { stop(); go(st.step + 1); }
+  if (e.key === "ArrowLeft") { stop(); go(st.step - 1); }
+});
+render();
+})();
+</script>
