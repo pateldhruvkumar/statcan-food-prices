@@ -1,11 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
+      "src": "/",
       "has": [{ "type": "host", "value": "statcan\\.dhruvpatel\\.app" }],
-      "destination": "/explorer"
-    }
+      "dest": "/explorer.html"
+    },
+    { "src": "/explorer", "dest": "/explorer.html" }
   ]
 }
