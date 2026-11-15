@@ -1,125 +1,121 @@
-# The Story of the StatCan Food Prices Pipeline
+# StatCan Food Prices Pipeline: Interview Story in STAR Format
 
-*An interview story for Data Analyst and Data Engineering roles*
-
----
-
-## The 30-second version (for "Tell me about a project")
-
-> "Grocery prices in Canada kept going up, and I wanted to know *which* items were rising, by how much, and where. Statistics Canada publishes the data, but only as huge flat CSVs. So I built an end-to-end pipeline: Python splits and uploads the files to an S3 data lake, Snowflake loads them, dbt cleans and models them in Bronze, Silver and Gold layers, and Power BI shows the results. That's about 140,000 price rows covering 110 products in 13 regions from 2017 to 2026. For example, it showed that beef striploin rose about 17% in a year, from $30.80 to $35.90 a kilo. The interesting part wasn't the tools. It was the small data problems that would quietly have given wrong answers."
+*For Data Analyst and Data Engineering interviews*
 
 ---
 
-## The full story (2–3 minutes)
+## The main STAR story (2–3 minutes)
 
-### 1. The hook: a question everyone has
+### S: Situation
+Grocery prices in Canada rose sharply, and I wanted to know **which items were rising, by how much and in which provinces**. Statistics Canada publishes this data for free: monthly average retail prices for about **110 products in 13 regions**, plus the Consumer Price Index. But it only comes as **large flat CSV files**, and the CPI file goes back to 1914. The raw data couldn't answer simple questions like "what were the top 10 price increases this year?"
 
-Every Canadian has looked at a grocery receipt and thought, *"Wasn't this cheaper last year?"* I wanted to answer that with data instead of a feeling.
+### T: Task
+My goal was to turn those raw government files into a **dashboard people could trust**. I wanted to build it the way a production data team would: automated, re-runnable, secure and layered. I set three requirements:
+1. Answer four business questions: the change from last month, the change from last year, the top 10 increases, and the most expensive provinces.
+2. Make every step safe to re-run without creating duplicates.
+3. Keep credentials out of the code.
 
-Statistics Canada publishes the answer for free: monthly average retail prices for about 110 food and household items, for every province, plus the Consumer Price Index. But the data comes as **one giant CSV per table**. The CPI file alone goes back to 1914. You can't open it, filter it and get "top 10 price increases this year." It's raw material, not an answer.
+### A: Action
+I built an end-to-end pipeline: **CSV → Python → AWS S3 → Snowflake → dbt (Bronze / Silver / Gold) → Power BI**.
 
-So the real question became: **how do I turn a government CSV dump into something a person can trust and use in under a minute?**
+**Ingestion (Python + S3)**
+- I split the raw files by year (2017–2026) with pandas. A **row-count check** confirms the yearly files add up to the original total, so no rows were lost.
+- I uploaded the files to S3 with boto3, using Hive-style partitions such as `landing/average-price/year=2024/`.
 
-### 2. The plan: build it like a real company would
+**Loading (Snowflake)**
+- Snowflake reads S3 through a **storage integration** (IAM role), so there are no access keys in SQL.
+- Tables are created from the CSV headers with `INFER_SCHEMA`, so I didn't write the table definitions by hand.
+- `COPY INTO` remembers which files it has loaded, so re-running it is **safe and creates no duplicates**.
 
-I could have done everything in one pandas notebook. I chose to build it the way a production data team would, because that's the skill I wanted to practise:
+**Transformation (dbt, medallion layers)**
+- **Bronze:** a raw copy of the source data.
+- **Silver:** cleaned and typed data. `TRY_CAST` and `TRY_TO_DATE` turn bad values into NULL instead of failing the run.
+- **Gold:** business metrics built with window functions: `LAG()` for month-over-month change, `LAG(…, 12)` for year-over-year change, `DENSE_RANK()` for the rankings, and rolling 3- and 12-month averages.
+- A custom macro writes the models to the schemas `BRONZE`, `SILVER` and `GOLD` instead of dbt's default `PUBLIC_BRONZE` style names.
 
-**CSV → Python → AWS S3 → Snowflake → dbt (Bronze / Silver / Gold) → Power BI**
+**Fixing data problems that didn't cause errors** (the most important part of the work)
+- **Hidden spaces:** 11 product names had a trailing space (`"Tofu, 350 grams "`), which split one product into two. I fixed it with `TRIM()` in Silver.
+- **Missing prices ranked first:** Snowflake puts NULLs first in a descending sort, so a province with *no price* ranked as the most expensive. I added an `IS NOT NULL` filter.
+- **Misleading averages:** a "12-month average" with only 1 month of data is wrong. I count the rows in each window and only show the average when the window is full.
+- **Divide-by-zero:** I used `NULLIF(prev_price, 0)` in every percentage calculation.
 
-- **Python** splits the raw files by year (2017–2026), so loads are incremental and easy to manage.
-- **S3** is the landing zone, with Hive-style partitions (`landing/average-price/year=2024/…`).
-- **Snowflake** reads S3 through a **storage integration** (IAM role, so no keys in code), builds tables with `INFER_SCHEMA` and loads them with `COPY INTO`. Because `COPY INTO` remembers which files it has loaded, I can re-run it safely and it won't load the same file twice.
-- **dbt** does the transformations in medallion layers: Bronze is a raw copy, Silver is cleaned and typed, Gold holds the business metrics.
-- **Power BI** sits on the Gold tables, with slicers for product, month and province.
+**Presentation**
+- I built a Power BI dashboard on the Gold tables, with slicers for product, month and province.
+- I also built an interactive web explorer that follows one price row through every step of the pipeline.
 
-### 3. The conflict: the data looked fine and was quietly wrong
+### R: Result
+- About **141,000 price rows and 236,000 CPI rows** (Jan 2017 – Aug 2026) now flow from raw files to a dashboard, and every step can be safely re-run.
+- The dashboard answers the four business questions in seconds. For August 2026, the top year-over-year increases were:
+  - **Beef striploin: +16.6%** ($30.80 → $35.90/kg)
+  - **Canned salmon: +15.5%**
+  - **Romaine lettuce: +14.4%**
+- I found and fixed **four problems that would each have given wrong answers without any error**.
+- The project and the explorer are live at `read-me-statcan.dhruvpatel.app` and `artifact-statcan.dhruvpatel.app`.
 
-This is the part of the story I tell most, because it's what the job is really like.
+**Lesson learned:** *"A pipeline that runs is not the same as a pipeline that's right."* Now I always check whitespace and NULLs before I trust a key, check how a ranking orders NULLs, and reconcile row counts between layers.
 
-**Problem 1: the invisible space.**
-StatCan publishes **11 product names with a trailing space**, for example `"Tofu, 350 grams "`. You can't see it. But to a database, `"Tofu, 350 grams "` and `"Tofu, 350 grams"` are two different products. That splits a time series, breaks lookups and makes slicers show duplicates. The fix is one `TRIM()` in Silver. Finding it took real investigation.
-
-**Problem 2: missing prices ranked as the most expensive.**
-For "the 3 most expensive provinces for each product" I used `DENSE_RANK() … ORDER BY average_price DESC`. Snowflake sorts **NULLs first** in descending order, so a province with *no price at all* came out as the "most expensive." The query ran without errors and the answer was wrong. I added an `average_price IS NOT NULL` filter, and now I always ask how my ranking treats NULLs.
-
-**Problem 3: averages that lie.**
-A 12-month moving average for the very first month of data is really a 1-month average with a misleading label. I count the rows in each window and only report the average when the window is full (3 or 12 months). An honest blank is better than a confident wrong number.
-
-**Problem 4: protecting against bad values and silent data loss.**
-- In Silver I used `TRY_CAST` and `TRY_TO_DATE`, so one bad value becomes `NULL` instead of failing the whole run.
-- I used `NULLIF(prev_price, 0)` so a zero price can't cause divide-by-zero errors.
-- When splitting by year, the script checks that the **sum of the yearly row counts equals the original row count**. It's a simple completeness check that no row was dropped.
-
-### 4. The resolution: a dashboard you can trust
-
-The final Gold layer answers four clear questions:
-
-| Question | Technique |
-|---|---|
-| How much did the price change from last month? | `LAG()` over province + product |
-| How much did it change from the same month last year? | `LAG(…, 12)` |
-| Which 10 products rose the most in Canada? | `DENSE_RANK()` on YoY % for the latest month |
-| Which provinces are the most expensive for each product? | `DENSE_RANK()` partitioned by product |
-
-For August 2026 the top year-over-year increases were:
-- **Beef striploin:** +16.6% ($30.80 → $35.90/kg)
-- **Canned salmon:** +15.5%
-- **Romaine lettuce:** +14.4%
-- **Salmon:** +14.2%
-
-To make the project easy to explain, I also built an **interactive pipeline explorer** that follows one price row through every step, from raw CSV to Gold metric. It's live at `artifact-statcan.dhruvpatel.app`, with a write-up at `read-me-statcan.dhruvpatel.app`.
-
-### 5. The lesson: the moral of the story
-
-> **"A pipeline that runs is not the same as a pipeline that's right."**
-
-Every bug I found ran successfully. No errors, no red text, just wrong answers. That changed how I work. I now check whitespace and nulls before I trust a key, I check how a ranking orders NULLs, and I reconcile row counts between layers.
-
-### 6. What's next (shows maturity, not weakness)
-
-- Add **dbt tests** (`not_null`, `unique`, `accepted_values`) so these checks run automatically.
-- Make the models **incremental**, so each month only new data is processed.
-- **Orchestrate** monthly refreshes (Airflow or GitHub Actions) instead of running steps by hand.
-- Use the CPI data I already modelled to compare **food prices with overall inflation**.
+**Next steps:** add dbt tests (`not_null`, `unique`), switch to incremental models, schedule monthly refreshes with Airflow or GitHub Actions, and compare food prices with the overall CPI.
 
 ---
 
-## Tailor the emphasis to the role
+## The 30-second STAR version
 
-| | **Data Analyst interview** | **Data Engineering interview** |
+> **S:** Grocery prices in Canada were rising, but Statistics Canada's data only comes as huge raw CSV files.
+> **T:** I wanted to turn it into a dashboard people could trust, built like a production pipeline.
+> **A:** I built Python → S3 → Snowflake → dbt Bronze/Silver/Gold → Power BI, and fixed hidden problems along the way, such as trailing spaces that split products and NULLs that ranked as the most expensive.
+> **R:** About 141,000 price rows now feed a dashboard that answers four questions in seconds. For example, it shows beef striploin rose 16.6% in a year.
+
+---
+
+## Short STAR stories for behavioral questions
+
+These are smaller stories from the same project for common "Tell me about a time…" questions.
+
+### "Tell me about a time you found a data quality issue."
+- **S:** My product slicers in Power BI showed what looked like duplicate products, and some time series had gaps.
+- **T:** Find the cause before trusting any of the metrics.
+- **A:** I compared distinct product names and their lengths, and found that 11 names published by StatCan ended in a space. I added `TRIM()` in the Silver layer, so every model downstream gets clean keys.
+- **R:** The duplicates disappeared, the time series became continuous, and the fix lives in one place instead of in every report.
+
+### "Tell me about a time your results were wrong but nothing failed."
+- **S:** My "3 most expensive provinces for each product" model ran without errors.
+- **T:** Check that the output made sense before putting it on the dashboard.
+- **A:** I spot-checked the top results and saw provinces with no price ranked #1. The cause was that Snowflake sorts NULLs first in a descending order. I added `average_price IS NOT NULL` to the query.
+- **R:** The rankings became correct, and I now check NULL ordering whenever I write a ranking query.
+
+### "Tell me about a time you designed for reliability."
+- **S:** The pipeline loads files from S3 into Snowflake, and I would need to re-run it often while developing.
+- **T:** Make sure re-runs never create duplicate rows and that one bad value can't stop the whole run.
+- **A:** I used `COPY INTO`, which skips files it has already loaded, `TRY_CAST` to turn bad values into NULL, and a row-count check after splitting the files.
+- **R:** I could re-run any step at any time without cleaning up afterwards, and the row-count check confirmed no data was lost.
+
+### "Tell me about a time you handled security or credentials."
+- **S:** The pipeline connects to both AWS and Snowflake.
+- **T:** Keep every credential out of the code repository.
+- **A:** Snowflake reads S3 through a storage integration (IAM role), boto3 uses the standard AWS credential chain, and dbt profiles and `.env` files are git-ignored.
+- **R:** The repository is public with no secrets in it.
+
+### "What would you do differently?"
+- **S:** I found the data problems by hand during development.
+- **T:** Catch them automatically next time.
+- **A:** I would add dbt tests (`not_null`, `unique`, `accepted_values`) from day one, and fix naming typos (`provience`) early, before they reach the BI layer.
+- **R:** Problems would show up as failing tests in CI instead of wrong numbers on a dashboard.
+
+---
+
+## Which parts to emphasise for each role
+
+| | **Data Analyst** | **Data Engineering** |
 |---|---|---|
-| **Lead with** | The business question and the findings (beef +16.6%) | The architecture and *why* each layer exists |
-| **Deep-dive on** | Window functions (`LAG`, `DENSE_RANK`, rolling averages), the NULL ranking bug, dashboard design | S3 partitioning, storage integration, idempotent `COPY INTO`, medallion layers, the dbt schema macro |
-| **Best bug to tell** | NULLs ranked as "most expensive" | Trailing spaces splitting product keys |
-| **Close with** | "I turned a raw government file into answers anyone can use in seconds." | "I built it to be re-runnable, secure and ready to automate." |
+| **In the Situation** | The business question: "which groceries are rising?" | The raw data problem: huge flat files that aren't ready for analysis |
+| **In the Action** | Window functions, the NULL ranking fix, dashboard design | S3 partitions, storage integration, safe `COPY INTO` reloads, medallion layers |
+| **In the Result** | The findings (beef +16.6%) | A re-runnable, secure pipeline that's ready to automate |
+| **Best behavioral story** | "Results were wrong but nothing failed" | "Designed for reliability" |
 
 ---
 
-## Likely follow-up questions (have these ready)
-
-1. **"Why Bronze, Silver and Gold instead of one transform?"**
-   Each layer has one job. Bronze keeps the raw data so I can always reprocess it. Silver is the single cleaned source of truth. Gold is shaped for one business question. If a metric looks wrong, I can trace it back layer by layer.
-
-2. **"Why split by year?"**
-   Smaller files load in parallel and the S3 layout is easy to browse. When new data arrives, only the current year's file changes. It also made the completeness check easy.
-
-3. **"How do you avoid loading duplicates?"**
-   `COPY INTO` keeps load metadata for each file, so re-running it skips files it has already loaded.
-
-4. **"How do you handle credentials?"**
-   Snowflake reads S3 through a storage integration (IAM role), so there are no keys in SQL. AWS credentials come from the standard credential chain, and dbt profiles are git-ignored.
-
-5. **"Why `DENSE_RANK` and not `ROW_NUMBER`?"**
-   If two products tie, both should appear, and the next rank shouldn't skip a number.
-
-6. **"What would you do differently?"**
-   Add dbt tests from day one, so the trailing-space and NULL issues would have been caught by a failing test rather than found by hand. Also fix early naming typos (`provience`), because they spread into the BI layer and become expensive to change.
-
----
-
-## Storytelling tips for delivery
-
-- **Start with the receipt, not the tech stack.** People remember a question they've asked themselves.
-- **Use one number and repeat it** ("beef up 17%"). One concrete number sticks better than five.
-- **Spend most of your time on the conflict.** Bugs that ran without errors show judgment, and judgment is what interviewers are hiring for.
-- **End with the moral**, then stop talking and let them ask questions.
+## Delivery tips
+- **Keep about 60% of your time on the Action**, and spend most of that on the data problems you fixed. That's where you show judgment.
+- **Always end the Result with a number** (141,000 rows, +16.6%, 4 problems fixed).
+- **Say "I", not "we".** This was your project.
+- **After the Result, give the lesson in one sentence**, then stop and let them ask questions.
