@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "^statcan\\.dhruvpatel\\.app$" }],
+      "status": 308,
+      "headers": { "Location": "https://artifact-statcan.dhruvpatel.app/$1" }
+    },
+    {
+      "src": "/",
+      "has": [{ "type": "host", "value": "^artifact-statcan\\.dhruvpatel\\.app$" }],
+      "dest": "/explorer.html"
+    },
+    { "src": "/explorer", "dest": "/explorer.html" }
+  ]
+}
