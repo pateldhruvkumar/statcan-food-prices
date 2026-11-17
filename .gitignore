@@ -29,6 +29,15 @@ statscan_dbt/target/
 statscan_dbt/dbt_packages/
 statscan_dbt/dbt_internal_packages/
 statscan_dbt/logs/
+.user.yml
+
+# --- Airflow ---
+# airflow.cfg is auto-generated and holds secret_key / jwt_secret
+airflow/config/airflow.cfg
+airflow/logs/
+*.pid
+simple_auth_manager_passwords.json*
+standalone_admin_password.txt
 
 # --- Python ---
 .venv/
